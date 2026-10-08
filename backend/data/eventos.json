@@ -1,0 +1,28 @@
+[
+  {
+    "id": "1791493416326",
+    "tipo": "campainha",
+    "dispositivo": "porta",
+    "rotulo": "Campainha",
+    "origem": "Entrada",
+    "cor": "vermelho",
+    "hora": "2026-10-08T21:03:36.326Z",
+    "db": 75,
+    "duracao": 4,
+    "status": "atendido",
+    "acao": "Alerta visual ativado"
+  },
+  {
+    "id": "1791493423114",
+    "tipo": "bebe",
+    "dispositivo": "bebe",
+    "rotulo": "Bebê",
+    "origem": "Quarto",
+    "cor": "vermelho",
+    "hora": "2026-10-08T21:03:43.114Z",
+    "db": 67,
+    "duracao": 15,
+    "status": "encerrado",
+    "acao": "Alerta visual ativado"
+  }
+]

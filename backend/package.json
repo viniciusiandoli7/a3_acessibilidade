@@ -1,0 +1,15 @@
+{
+  "name": "alerta-visual-backend",
+  "version": "2.0.0",
+  "description": "Backend do Sistema de Alerta Visual (Arduino + painel web)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node ../tests/backend-smoke.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "serialport": "^12.0.0",
+    "ws": "^8.18.0"
+  }
+}

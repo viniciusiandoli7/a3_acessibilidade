@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'build/alerta_demo.ino.hex'
+elf = 'build/alerta_demo.ino.elf'
+rfc2217ServerPort = 4000

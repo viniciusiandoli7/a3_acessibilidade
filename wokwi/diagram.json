@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "author": "Projeto Alerta Visual",
+  "editor": "wokwi",
+  "parts": [
+    {"type":"wokwi-arduino-uno","id":"uno","top":72,"left":76,"attrs":{}},
+    {"type":"wokwi-pushbutton","id":"porta","top":-106,"left":430,"attrs":{"label":"Campainha","color":"#C88F59","key":"1","bounce":"0"}},
+    {"type":"wokwi-pushbutton","id":"bebe","top":-18,"left":430,"attrs":{"label":"Bebe","color":"#5F9EBC","key":"2","bounce":"0"}},
+    {"type":"wokwi-pushbutton","id":"fumaca","top":70,"left":430,"attrs":{"label":"Alarme fumaca","color":"#C95757","key":"3","bounce":"0"}},
+    {"type":"wokwi-pushbutton","id":"outro","top":158,"left":430,"attrs":{"label":"Outro sensor","color":"#AC8EB3","key":"4","bounce":"0"}},
+    {"type":"wokwi-rgb-led","id":"ledrgb","top":294,"left":440,"attrs":{"common":"cathode"}},
+    {"type":"wokwi-led","id":"vibled","top":302,"left":597,"attrs":{"color":"green","label":"Motor (simulado)"}},
+    {"type":"wokwi-resistor","id":"r1","top":312,"left":344,"attrs":{"value":"220"}},
+    {"type":"wokwi-resistor","id":"r2","top":336,"left":344,"attrs":{"value":"220"}},
+    {"type":"wokwi-resistor","id":"r3","top":360,"left":344,"attrs":{"value":"220"}},
+    {"type":"wokwi-resistor","id":"r4","top":402,"left":510,"attrs":{"value":"220"}}
+  ],
+  "connections": [
+    ["uno:2","porta:1.l","orange",[]],["porta:2.l","uno:GND.1","black",[]],
+    ["uno:3","bebe:1.l","blue",[]],["bebe:2.l","uno:GND.1","black",[]],
+    ["uno:4","fumaca:1.l","red",[]],["fumaca:2.l","uno:GND.1","black",[]],
+    ["uno:6","outro:1.l","purple",[]],["outro:2.l","uno:GND.1","black",[]],
+    ["uno:9","r1:1","red",[]],["r1:2","ledrgb:R","red",[]],
+    ["uno:10","r2:1","green",[]],["r2:2","ledrgb:G","green",[]],
+    ["uno:11","r3:1","blue",[]],["r3:2","ledrgb:B","blue",[]],
+    ["ledrgb:COM","uno:GND.2","black",[]],
+    ["uno:5","r4:1","green",[]],["r4:2","vibled:A","green",[]],
+    ["vibled:C","uno:GND.2","black",[]]
+  ],
+  "serialMonitor":{"display":"terminal","newline":"lf"}
+}

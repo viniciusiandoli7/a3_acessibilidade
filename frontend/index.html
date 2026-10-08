@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#081528">
+  <meta name="description" content="Alerta Visual: acompanhe sinais importantes de sua casa com luz, vibração e informações acessíveis.">
+  <title>Painel | Sistema de Alerta Visual</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a href="#conteudo" class="pular-link">Pular para o conteúdo</a>
+  <div class="app">
+    <aside class="lateral">
+      <a class="marca" href="#dashboard" aria-label="Sistema de Alerta Visual, início"><span class="marca-simbolo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4M3 3l-2 2M21 3l2 2"/></svg></span><span class="marca-texto">Sistema de <strong>Alerta Visual</strong><small>Um sinal faz a diferença.</small></span></a>
+      <div class="nav-grupo"><p class="nav-label">NAVEGAÇÃO</p>
+        <nav aria-label="Navegação principal"><ul class="menu">
+          <li><a data-view="dashboard" href="#dashboard"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-7H9v7H3z"/></svg></span>Painel</a></li>
+          <li><a data-view="dispositivos" href="#dispositivos"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M5 3h14v18H5zM8 7h8M8 11h5M8 16h8"/></svg></span>Dispositivos</a></li>
+          <li><a data-view="alertas" href="#alertas"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4"/></svg></span>Alertas <span class="contagem-nav" id="contagem-nav" hidden>1</span></a></li>
+          <li><a data-view="relatorios" href="#relatorios"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/></svg></span>Relatórios</a></li>
+          <li class="menu-separador"><a data-view="prototipo" href="#prototipo"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 8h16v10H4zM8 5h8M8 12h8M12 8v12"/></svg></span>Protótipo ao vivo</a></li>
+        </ul></nav>
+      </div>
+      <div class="lateral-rodape">
+        <div class="conexao" id="conexao" role="status" aria-live="polite"><span class="ponto" id="conexao-ponto" aria-hidden="true"></span><div><strong id="conexao-texto">Conectando…</strong><small id="conexao-ajuda">Aguardando sistema</small></div></div>
+        <a href="#prototipo" class="ajuda-link">◎ &nbsp; Como funciona?</a>
+        <p class="assinatura">Protótipo de acessibilidade • v2.0</p>
+      </div>
+    </aside>
+    <main id="conteudo" tabindex="-1">
+      <header class="topo"><div><p class="sobretitulo" id="subtitulo-pagina">SEU ESPAÇO, EM TEMPO REAL</p><h1 id="titulo-pagina">Sistema de Alerta Visual</h1><p class="topo-sub" id="descricao-pagina">Monitoramento em tempo real, com sinais que você pode ver e sentir.</p></div>
+        <div class="topo-direita"><span class="data-atual" id="data-atual"></span><span id="modo-badge" class="modo-badge">Carregando</span></div>
+      </header>
+      <section id="view-dashboard" class="view" aria-label="Painel inicial">
+        <div class="dashboard-aviso" id="boas-vindas"><span class="ponto-suave" aria-hidden="true"></span><div><strong id="boas-titulo">Verificando os sensores…</strong><p id="boas-descricao">Assim que tudo estiver pronto, você verá os sinais por aqui.</p></div><a href="#prototipo" class="btn btn-outline btn-sm">Ver conexão <span aria-hidden="true">↗</span></a></div>
+        <div class="grade-painel">
+          <article id="card-ultimo" class="cartao cartao-evento" aria-live="polite"></article>
+          <article id="card-critico" class="cartao cartao-evento" aria-live="polite"></article>
+          <div class="coluna-resumo">
+            <div class="cartao resumo"><div class="resumo-icone" aria-hidden="true">▦</div><div><p class="rotulo">Eventos hoje</p><p class="numero" id="num-hoje">0</p><p class="nota">Registros do dia</p></div></div>
+            <div class="cartao resumo"><div class="resumo-icone" aria-hidden="true">◉</div><div><p class="rotulo">Sensores habilitados</p><p class="numero"><span id="num-mics">0</span><span class="numero-sufixo"> / 4</span></p><p class="nota">Configuração de captura</p></div></div>
+            <div class="cartao resumo"><div class="resumo-icone" aria-hidden="true">⌁</div><div><p class="rotulo">Conectividade</p><p class="numero-pequeno" id="nota-conexao">Carregando</p><p class="nota">Situação do hardware</p></div></div>
+          </div>
+          <section class="cartao tabela-cartao" aria-labelledby="h-hist-dash"><div class="cabecalho-cartao"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2 id="h-hist-dash">Atividades recentes</h2></div><a href="#relatorios" class="btn btn-outline btn-sm">Ver histórico completo →</a></div><div class="rolagem"><table><thead><tr><th scope="col">HORÁRIO</th><th scope="col">EVENTO</th><th scope="col">AMBIENTE</th><th scope="col">DURAÇÃO</th></tr></thead><tbody id="tbody-dash"></tbody></table></div></section>
+          <section class="cartao lista-hw" aria-labelledby="h-hw"><div class="cabecalho-cartao"><div><p class="eyebrow">EQUIPAMENTOS</p><h2 id="h-hw">Seu sistema</h2></div><span class="status-pill neutro" id="estado-hw-resumo">Verificando</span></div><ul id="lista-hw"></ul><a class="link-suave" href="#prototipo">Acompanhar protótipo ao vivo →</a></section>
+        </div>
+      </section>
+      <section id="view-dispositivos" class="view" hidden>
+        <div class="intro-secao"><p class="eyebrow">PERSONALIZAÇÃO</p><h2>Os sinais do seu jeito</h2><p>Escolha quais canais acompanhar. Ative, ajuste a sensibilidade e veja a cor de cada alerta.</p></div>
+        <div id="lista-dispositivos" class="grade-dispositivos"></div>
+        <div id="painel-saidas" class="grade-saidas"></div>
+      </section>
+      <section id="view-alertas" class="view" hidden>
+        <div class="intro-secao"><p class="eyebrow">CENTRAL DE ATENÇÃO</p><h2>A informação certa, na hora certa.</h2><p>Acompanhe o alerta, a resposta visual e as próximas orientações.</p></div>
+        <div id="faixa-alerta" class="faixa-alerta" role="status" aria-live="polite"></div>
+        <div class="grade-alertas"><article class="cartao" id="al-principal"></article><article class="cartao" id="al-hardware"></article><article class="cartao" id="al-malha"></article><article class="cartao" id="al-evacuacao"></article></div>
+      </section>
+      <section id="view-prototipo" class="view" hidden>
+        <div class="intro-secao prototipo-intro"><div><p class="eyebrow">CONHEÇA O QUE ESTÁ POR TRÁS</p><h2>Seu protótipo, acontecendo ao vivo.</h2><p>Acompanhe a comunicação entre os sensores, o Arduino e os avisos na tela. É possível testar mesmo sem o equipamento físico.</p></div><span class="prototipo-fonte" id="prototipo-fonte">Aguardando estado…</span></div>
+        <div class="prototipo-grade">
+          <section class="cartao placa-cartao" aria-labelledby="placa-titulo">
+            <div class="cabecalho-cartao"><div><p class="eyebrow">REPRESENTAÇÃO FUNCIONAL</p><h2 id="placa-titulo">Arduino + sinais de casa</h2></div><span class="placa-atualizacao" id="placa-atualizacao">Aguardando atualização</span></div>
+            <div class="circuito">
+              <div class="placa-sensores" id="placa-sensores"></div>
+              <div class="placa-conector" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <div class="arduino-corpo"><span class="arduino-topo">ARDUINO <strong>UNO</strong></span><div class="arduino-chip" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div><span class="arduino-meta" id="arduino-meta">Aguardando conexão</span><small>Leitura dos sensores · envio de comandos</small><span class="arduino-porta" aria-hidden="true"></span></div>
+              <div class="placa-conector saida-fios" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="placa-saidas"><div class="saida-campo"><span class="mini-label">LUZ</span><div class="led-demo" id="led-demo" aria-hidden="true"><span></span></div><strong id="led-label">Em espera</strong><small id="led-detalhe">LED pronto para o próximo alerta</small></div><div class="saida-campo"><span class="mini-label">VIBRAÇÃO</span><div class="motor-demo" id="motor-demo" aria-hidden="true">≈</div><strong id="motor-label">Em espera</strong><small id="motor-detalhe">Motor pronto para o próximo alerta</small></div></div>
+            </div>
+            <p class="placa-nota" id="placa-nota">Este é um gêmeo visual do circuito. O estado exibido depende dos dados disponíveis e não substitui a verificação física dos componentes.</p>
+          </section>
+          <aside class="prototipo-lateral">
+            <div class="cartao status-prototipo"><p class="eyebrow">SITUAÇÃO ATUAL</p><div class="status-linha"><span class="status-bolinha" id="status-bolinha" aria-hidden="true"></span><h3 id="status-prototipo">Preparando conexão</h3></div><p id="status-explicacao">Verificando se há um Arduino conectado.</p><dl class="status-dados"><div><dt>Origem dos dados</dt><dd id="status-origem">—</dd></div><div><dt>Último sinal</dt><dd id="status-ultimo">—</dd></div><div><dt>Placa / porta</dt><dd id="status-porta">—</dd></div></dl></div>
+            <div class="cartao teste-prototipo"><p class="eyebrow">EXPERIMENTE AGORA</p><h3>Faça um teste</h3><p>Escolha uma situação. O sistema vai apresentar como seria o alerta.</p><label for="sel-teste-proto">Qual sinal deseja testar?</label><select id="sel-teste-proto"><option value="porta">Alguém na porta</option><option value="bebe">Som no quarto do bebê</option><option value="fumaca">Alarme de fumaça (teste)</option><option value="custom">Som personalizado</option></select><button type="button" id="btn-teste-proto" class="btn btn-escuro btn-bloco">Simular este sinal <span aria-hidden="true">→</span></button><p class="teste-nota">O botão cria um evento de demonstração. Não significa que um sensor físico detectou o som.</p></div>
+          </aside>
+        </div>
+      </section>
+
+
+      <section id="view-relatorios" class="view" hidden>
+        <div class="rel-filtros"><div class="intro-secao"><p class="eyebrow">VISÃO HISTÓRICA</p><h2>Entenda os sinais da sua casa.</h2><p>Somente dados registrados pelo sistema — sem números inventados.</p></div><div class="filtros-direita"><label for="periodo-rel">Período analisado</label><select id="periodo-rel"><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="hoje">Hoje</option><option value="todos">Todo o histórico</option></select></div></div>
+        <div id="stats-relatorio" class="grade-stats"></div>
+        <div class="grade-relatorio"><section class="cartao grafico-cartao" aria-labelledby="h-grafico"><div class="cabecalho-cartao"><div><p class="eyebrow">VOLUME DE OCORRÊNCIAS</p><h2 id="h-grafico">Eventos por horário</h2></div><span class="nota">Blocos de 3 horas</span></div><ul class="grafico" id="grafico" aria-label="Gráfico de eventos por período"></ul><ul class="legenda" aria-hidden="true"><li><i class="q t-campainha"></i>Campainha</li><li><i class="q t-bebe"></i>Quarto</li><li><i class="q t-fumaca"></i>Alarme</li><li><i class="q t-custom"></i>Outros</li></ul></section><section class="cartao distribuicao-cartao"><p class="eyebrow">CATEGORIAS</p><h2>Tipos de evento</h2><div id="total-por-tipo"></div></section></div>
+        <section class="cartao tabela-relatorios" aria-labelledby="h-hist-rel"><div class="cabecalho-cartao"><div><p class="eyebrow">REGISTROS</p><h2 id="h-hist-rel">Histórico detalhado</h2></div><div class="filtros-tabela"><label class="sr-only" for="tipo-rel">Filtrar tipo de evento</label><select id="tipo-rel"><option value="todos">Todos os eventos</option><option value="campainha">Campainha</option><option value="bebe">Bebê</option><option value="fumaca">Alarme de fumaça</option><option value="custom">Personalizado</option></select><button type="button" class="btn btn-outline btn-sm" id="btn-exportar">↓ Exportar CSV</button></div></div><div class="rolagem"><table><thead><tr><th scope="col">DATA / HORA</th><th scope="col">EVENTO</th><th scope="col">ORIGEM</th><th scope="col">AMPLITUDE*</th><th scope="col">DURAÇÃO</th><th scope="col">STATUS</th></tr></thead><tbody id="tbody-rel"></tbody></table></div><p class="nota nota-rodape">* Valor estimado a partir da leitura analógica, não é uma medição acústica calibrada em dB SPL.</p></section>
+      </section>
+    </main>
+  </div>
+  <div id="alerta-tela" class="alerta-tela" role="alertdialog" aria-modal="true" aria-labelledby="alerta-titulo" aria-describedby="alerta-desc" hidden><div class="alerta-conteudo"><span class="alerta-identificacao" id="alerta-identificacao">AVISO IMPORTANTE</span><div id="alerta-icone" class="alerta-icone" aria-hidden="true"></div><h2 id="alerta-titulo"></h2><p id="alerta-desc"></p><div class="alerta-acoes"><button type="button" class="btn btn-grande" id="alerta-silenciar">Silenciar sinal</button><button type="button" class="btn btn-grande btn-vazado" id="alerta-fechar">Continuar acompanhando</button></div><p class="alerta-ajuda">Silenciar interrompe o aviso, mas não elimina possíveis riscos. Na dúvida, procure um lugar seguro.</p></div></div>
+  <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div><div id="anuncio" class="sr-only" aria-live="assertive"></div>
+  <script src="js/api.js"></script><script src="js/app.js"></script>
+</body></html>
