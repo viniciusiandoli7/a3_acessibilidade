@@ -1,4 +1,4 @@
-# Alerta Visual 6.0 — aplicação integrada e apresentação acadêmica
+# Alerta Visual — aplicação integrada e apresentação acadêmica
 
 Aplicação em **HTML/CSS/JavaScript puro**, backend **Node.js/Express + WebSocket**, integração serial com **Arduino Uno**, e opção de usar uma placa **Wokwi** por ponte serial. O frontend mantém a estética escura dos protótipos e remove as telas independentes de Diagnóstico, Família e Acessibilidade, que não faziam parte do fluxo principal.
 
@@ -9,7 +9,7 @@ Aplicação em **HTML/CSS/JavaScript puro**, backend **Node.js/Express + WebSock
 Requisitos: **Node.js 20+**, npm e navegador moderno.
 
 ```bash
-cd alerta-visual/backend
+cd a3_acessibilidade/backend
 npm install
 npm start
 ```
