@@ -37,20 +37,24 @@
   const DISPOSITIVOS = [
     { id: 'porta', nome: 'Sensor da Porta', tipo: 'campainha', icone: 'porta' },
     { id: 'bebe', nome: 'Monitor do Bebê', tipo: 'bebe', icone: 'bebe' },
-    { id: 'fumaca', nome: 'Detector de Fumaça', tipo: 'fumaca', icone: 'fumaca' },
+    { id: 'fumaca', nome: 'Sensor do Alarme', tipo: 'fumaca', icone: 'fumaca' },
     { id: 'custom', nome: 'Personalizável', tipo: 'custom', icone: 'custom' }
   ];
   const CORES = [['azul', 'Azul'], ['laranja', 'Laranja'], ['vermelho', 'Vermelho']];
   const VIEWS = {
     dashboard: 'Sistema de Alerta Visual', dispositivos: 'Gestão de dispositivos',
-    alertas: 'Central de alertas', prototipo: 'Protótipo ao vivo', relatorios: 'Relatórios e análises'
+    alertas: 'Central de alertas', prototipo: 'Protótipo ao vivo', relatorios: 'Relatórios e análises',
+    mapa: 'Mapa da casa', 'como-funciona': 'Como funciona', guia: 'Demonstração guiada'
   };
   const DESCRICOES = {
     dashboard: 'Monitoramento em tempo real, com sinais que você pode ver e sentir.',
     dispositivos: 'Configure os sensores e a resposta visual do seu sistema.',
     alertas: 'Respostas visuais e táteis aos sinais importantes.',
-    prototipo: 'Acompanhe o circuito virtual e a comunicação com a placa.',
-    relatorios: 'Histórico real dos eventos registrados pelo sistema.'
+    prototipo: 'Explore a bancada, os sinais e a comunicação com o Arduino.',
+    relatorios: 'Histórico real dos eventos registrados pelo sistema.',
+    mapa: 'Explore os cômodos e os alertas em tempo real.',
+    'como-funciona': 'Entenda o fluxo completo do projeto, da casa até o Arduino.',
+    guia: 'Apresente cada função no seu ritmo.'
   };
 
   /* ---------- Estado ---------- */
@@ -61,6 +65,12 @@
   let socketOk = false;
   let dispositivosMontados = false;
   let focoAnterior = null;
+  let diagnostico = null;
+  let comodoSelecionado = 'porta';
+  let etapaGuia = 0;
+  let guiaExecutando = false;
+  const monitorLines = [];
+  let lastRenderNotice = '';
 
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -89,7 +99,7 @@
       else a.removeAttribute('aria-current');
     });
     $('titulo-pagina').textContent = VIEWS[nome];
-    $('subtitulo-pagina').textContent = nome === 'dashboard' ? 'SEU ESPAÇO, EM TEMPO REAL' : nome === 'prototipo' ? 'HARDWARE & SIMULAÇÃO' : 'SISTEMA DE ALERTA VISUAL';
+    $('subtitulo-pagina').textContent = nome === 'dashboard' ? 'SEU ESPAÇO, EM TEMPO REAL' : nome === 'prototipo' ? 'HARDWARE & SIMULAÇÃO' : nome === 'como-funciona' ? 'DOCUMENTAÇÃO DO PROJETO' : 'SISTEMA DE ALERTA VISUAL';
     $('descricao-pagina').textContent = DESCRICOES[nome];
     document.title = VIEWS[nome] + ' | Alerta Visual';
     if (moverFoco) $('conteudo').focus();
@@ -138,8 +148,8 @@
     const lista = [
       ['chip', 'Arduino Uno', arduino],
       ['sensor', 'Sensores configurados', [ativos + ' de 4', ativos ? 'ok' : 'aviso']],
-      ['vibracao', 'Vibração', estado.exibicao ? ['Habilitada', 'ok'] : ['Desabilitada', 'aviso']],
-      ['lampada', 'Iluminação', estado.exibicao ? ['Habilitada', 'ok'] : ['Desabilitada', 'aviso']]
+      ['vibracao', 'Vibração', estado.exibicao ? ['Configurada', 'aviso'] : ['Desabilitada', 'aviso']],
+      ['lampada', 'Iluminação', estado.exibicao ? ['Configurada', 'aviso'] : ['Desabilitada', 'aviso']]
     ];
     $('lista-hw').innerHTML = lista.map((i) =>
       '<li>' + icone(i[0]) + '<span>' + i[1] + '</span><span class="estado ' + i[2][1] + '">' + i[2][0] + '</span></li>'
@@ -206,6 +216,11 @@
     $('chk-exib').checked = estado.exibicao;
     $('equip').querySelectorAll('div').forEach((div) => div.classList.toggle('ligado', estado.exibicao));
     $('aviso-equipamento').textContent = textoHardware() + '. Habilitar saídas não garante que os componentes físicos estejam funcionando.';
+    if($('sel-teste')){
+      Array.from($('sel-teste').options).forEach(op=>{op.disabled=!estado.dispositivos[op.value].ativo;op.text=DISPOSITIVOS.find(d=>d.id===op.value).nome+(op.disabled?' (desativado)':'');});
+      if($('sel-teste').selectedOptions[0]?.disabled){const first=Array.from($('sel-teste').options).find(op=>!op.disabled);if(first)$('sel-teste').value=first.value;}
+      $('btn-simular').disabled=!Array.from($('sel-teste').options).some(op=>!op.disabled);
+    }
   }
   function ligarEventosDispositivos() {
     const lista = $('lista-dispositivos');
@@ -228,7 +243,7 @@
     $('painel-saidas').addEventListener('click', async (e) => {
       if (!e.target.closest('#btn-simular')) return;
       try { await Api.simular($('sel-teste').value); }
-      catch (_) { aviso('Não foi possível simular o evento.'); }
+      catch (err) { aviso(err.message || 'Não foi possível simular o evento.'); }
     });
   }
 
@@ -267,8 +282,8 @@
     $('al-evacuacao').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-laranja">Orientações</span></div>' +
       '<h2 class="titulo-cartao">Segurança em primeiro lugar</h2>' +
       '<div class="saida">' + icone('saida') + '<div><strong>' + (a && a.critico ? 'Se houver suspeita de incêndio' : 'Orientações para situações de risco') + '</strong><p>Procure uma saída segura, não reentre no local e ligue para os bombeiros (193) em uma emergência.</p></div></div>' +
-      '<p class="grow">O protótipo não verifica rotas, não controla portas e não envia mensagens externas.</p>' +
-      '<button type="button" class="btn btn-escuro btn-bloco" id="btn-notificar">' + icone('enviar') + 'Registrar pedido de aviso (demo)</button>';
+      '<p class="grow">Este sistema não detecta fumaça diretamente, não valida rotas de saída e não controla portas.</p>' +
+      '<a class="btn btn-escuro btn-bloco" href="#mapa">' + icone('porta') + 'Ver mapa dos ambientes</a>';
   }
 
   function ligarEventosAlertas() {
@@ -276,14 +291,14 @@
       try {
         if (e.target.closest('#btn-silenciar')) await Api.silenciar();
         else if (e.target.closest('#btn-testar')) await Api.testarHardware();
-        else if (e.target.closest('#btn-notificar')) await Api.notificar();
+
       } catch (_) { aviso('Não foi possível concluir a ação.'); }
     });
   }
 
   /* ---------- Relatórios ---------- */
   function linhasRelatorio(lista) {
-    const nomes = {atendido:'Silenciado',pendente:'Em andamento',encerrado:'Encerrado',silenciado:'Silenciado'};
+    const nomes = {atendido:'Silenciado',pendente:'Em andamento',encerrado:'Encerrado',interrompido:'Interrompido',silenciado:'Silenciado'};
     if (!lista.length) return '<tr class="vazio-linha"><td colspan="6">Não há registros para este filtro.</td></tr>';
     return lista.slice(0,120).map(e=>'<tr><td class="hora">'+new Date(e.hora).toLocaleString('pt-BR')+'</td><td>'+etiquetaTipo(e.tipo)+'</td><td>'+esc(e.origem)+'</td><td>'+ (Number.isFinite(e.db)?e.db+'*':'—') +'</td><td>'+duracao(e.duracao)+'</td><td><span class="status '+esc(e.status)+'">'+(nomes[e.status]||'Registrado')+'</span></td></tr>').join('');
   }
@@ -299,7 +314,7 @@
     const atendidas = lista.filter(e=>e.tipo==='fumaca' && e.status!=='pendente').length;
     const cards = [
       ['Total de eventos',String(lista.length)+'<small>Ocorrências no período escolhido</small>',''],
-      ['Amplitude mais alta',pico?pico.db+'*<small>Leitura convertida, não calibrada</small>':'—<small>Sem leituras</small>','t-campainha'],
+      ['Índice de sinal mais alto',pico?pico.db+'*<small>Leitura convertida, não calibrada</small>':'—<small>Sem leituras</small>','t-campainha'],
       ['Mais frequente',comum&&comum[1]?esc(TIPOS_UI[comum[0]].rotulo)+'<small>'+comum[1]+' ocorrências</small>':'—<small>Sem ocorrências</small>','t-custom'],
       ['Alertas de fumaça encerrados',String(atendidas)+'<small>Encerrados ou silenciados, não significa risco resolvido</small>','t-fumaca']
     ];
@@ -320,7 +335,7 @@
   function exportarCsv() {
     const lista=(relatorio.eventos||[]).filter(e=>$('tipo-rel').value==='todos'||e.tipo===$('tipo-rel').value);
     const seguro = x => { let v=String(x == null ? '' : x).replace(/^[\s]*[=+@-]/, m => String.fromCharCode(39)+m); return '"'+v.replace(/"/g,'""')+'"'; };
-    const cab=['Data/hora','Evento','Ambiente','Amplitude estimada (nao calibrada)','Duracao (s)','Situacao','Origem dos dados'];
+    const cab=['Data/hora','Evento','Ambiente','Indice visual estimado (nao calibrado)','Duracao (s)','Situacao','Origem dos dados'];
     const rows=lista.map(e=>[new Date(e.hora).toLocaleString('pt-BR'), TIPOS_UI[e.tipo]?.rotulo||e.tipo,e.origem,e.db,e.duracao,e.status,e.fonte]);
     const csv='\uFEFF'+[cab,...rows].map(row=>row.map(seguro).join(';')).join('\r\n');
     const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
@@ -367,64 +382,247 @@
     }
   }
 
-  function renderPrototipo() {
-    const hw = estado.hardware;
-    const fisico = hw.modo === 'serial';
-    const wokwi = hw.modo === 'wokwi';
-    const conectado = (fisico || wokwi) && hw.conectado;
-    const a = estado.alerta;
-    const ult = eventos[0];
-    const ultimoRecentemente = ult && (Date.now() - new Date(ult.hora).getTime() < 30000);
-    const idSinal = a ? (a.dispositivo || (ult && ult.dispositivo)) : ultimoRecentemente ? ult.dispositivo : null;
-    const corPorNome = { azul: '#357fa2', laranja: '#b87534', vermelho: '#b64245' };
-    const nomePorta = hw.porta || 'Não definida';
-    const modo = wokwi ? (conectado ? 'Wokwi conectado' : 'Wokwi desconectado') : !fisico ? 'Simulação no navegador' : conectado ? 'Arduino físico' : 'Arduino desconectado';
-    $('prototipo-fonte').textContent = modo;
-    $('prototipo-fonte').className = 'prototipo-fonte ' + (!fisico && !wokwi ? 'sim' : conectado ? (wokwi ? 'sim' : '') : 'off');
-    $('status-bolinha').className = 'status-bolinha ' + (!fisico && !wokwi ? 'sim' : conectado ? 'ok' : '');
-    $('status-prototipo').textContent = wokwi ? (conectado ? 'Simulador conectado' : 'Aguardando o Wokwi') : !fisico ? 'Modo de demonstração' : conectado ? 'Arduino conectado' : 'Aguardando o Arduino';
-    $('status-explicacao').textContent = wokwi
-      ? 'A placa no Wokwi está enviando dados pelo canal serial virtual. Os sensores e atuadores também são virtuais.'
-      : !fisico
-      ? 'Os comandos e os alertas são demonstrados no navegador. Nenhuma peça física está sendo medida.'
-      : conectado
-        ? 'A conexão serial está aberta. As informações abaixo vêm do sistema e, quando disponível, do firmware da placa.'
-        : 'O servidor foi configurado para uma porta serial, mas ainda não estabeleceu a conexão.';
-    $('status-origem').textContent = modo;
-    $('status-porta').textContent = !fisico && !wokwi ? 'Arduino Uno · demonstração' : 'Arduino Uno · ' + nomePorta;
-    $('status-ultimo').textContent = ult ? TIPOS_UI[ult.tipo].rotulo + ' · ' + horaCurta(ult.hora) + (ult.fonte === 'simulacao' ? ' (teste)' : '') : 'Nenhum evento';
-    $('arduino-meta').textContent = conectado ? (wokwi ? 'Serial virtual conectada' : 'Porta serial conectada') : !fisico && !wokwi ? 'Simulação em execução' : 'Sem conexão';
-    $('placa-atualizacao').textContent = a ? 'Sinal ativo agora' : 'Aguardando o próximo sinal';
-    const nomesPinos = { porta:'A0', bebe:'A1', fumaca:'A2', custom:'A3' };
-    $('placa-sensores').innerHTML = DISPOSITIVOS.map((d) => {
-      const conf = estado.dispositivos[d.id];
-      const aceso = conf.ativo && d.id === idSinal && (a || ultimoRecentemente);
-      return '<div class="sensor-demo ' + (conf.ativo ? 'ativo ' : '') + (aceso ? 'em-alerta t-' + d.tipo : '') + '"' +
-        ' title="' + esc(d.nome) + ', porta ' + nomesPinos[d.id] + '">' +
-        '<div><span class="sensor-nome">' + esc(d.nome) + '</span><small>' + nomesPinos[d.id] + ' · ' +
-        (aceso ? (a ? 'Sinal ativo' : 'Último evento') : conf.ativo ? 'Habilitado' : 'Desativado') +
-        '</small></div><span class="sensor-led" aria-hidden="true"></span></div>';
+  function registrarMonitor(mensagem, categoria='info') {
+    if (!mensagem || mensagem === lastRenderNotice) return;
+    lastRenderNotice = mensagem;
+    monitorLines.unshift({ texto: mensagem, categoria, hora: new Date().toLocaleTimeString('pt-BR', {hour12:false}) });
+    monitorLines.splice(12);
+    const container = $('sim-monitor-lines');
+    if (container) container.innerHTML = monitorLines.map(l => '<p class="monitor-' + l.categoria + '"><time>' + l.hora + '</time> <span>' + esc(l.texto) + '</span></p>').join('');
+  }
+  function construirBancada(){
+    const svg = $('sim-analog-pins');
+    svg.innerHTML = Array.from({length:12},(_,i)=>'<rect x="'+(174+i*15)+'" y="182" width="7" height="8" rx="1"/><rect x="'+(174+i*15)+'" y="439" width="7" height="8" rx="1"/>').join('');
+    $('sim-components').innerHTML = DISPOSITIVOS.map((d,i) => '<button type="button" class="sim-component" data-sim-test="'+d.id+'"><span class="sim-component-icon">'+icone(d.icone)+'</span><span><strong>'+esc(d.nome)+'</strong><small>Entrada A'+i+' · Teste virtual</small></span><span class="component-arrow" aria-hidden="true">↗</span></button>').join('');
+    $('sim-components').addEventListener('click',async e=>{
+      const b=e.target.closest('[data-sim-test]');if(!b)return;
+      await simularDaBancada(b.dataset.simTest,b);
+    });
+    $('sim-run').addEventListener('click',()=>simularDaBancada('porta',$('sim-run')));
+    $('sim-hardware-test').addEventListener('click',async()=>{
+      const btn=$('sim-hardware-test');btn.disabled=true;
+      try {const resultado=await Api.testarHardware();registrarMonitor(resultado.observacao,resultado.enviado?'ok':'info');aviso(resultado.observacao);}
+      catch(e){aviso(e.message);}finally{btn.disabled=false;}
+    });
+    $('sim-reset').addEventListener('click',async()=>{
+      try {await Api.silenciar(); registrarMonitor('Aviso silenciado pelo usuário.','ok'); await atualizarTudo();}
+      catch(e){aviso(e.message);}
+    });
+    registrarMonitor('Bancada inicializada. Aguardando eventos.');
+  }
+  function renderFluxoDoAlerta(){
+    if(!estado) return;
+    const a=estado.alerta;
+    const hw=estado.hardware;
+    const ligado=hw.modo!=='simulado' && hw.conectado;
+    const etapas=[
+      {k:'sensor',titulo:'1. Sensor / ambiente',desc:a?`${AMBIENTES[a.dispositivo]?.nome || a.origem} enviou um sinal.`:'A casa aguarda um som configurado.'},
+      {k:'backend',titulo:'2. Backend Node.js',desc:a?'O servidor registrou o evento e salvou no histórico.':'O backend fica pronto para receber eventos.'},
+      {k:'painel',titulo:'3. Painel em tempo real',desc:a?'A interface foi atualizada via WebSocket.':'O painel escuta o servidor continuamente.'},
+      {k:'saidas',titulo:'4. LED e vibração',desc:ligado?(a?'Se o evento vier do hardware, as saídas podem ser acionadas.':'Aguardando um evento real do Arduino.'):(a?'Em simulação, o circuito é ilustrativo e não energiza saídas físicas.':'Sem placa conectada; apenas demonstração visual.')}
+    ];
+    const ativo = a ? 4 : 1;
+    const holder=$('flow-steps');
+    if(holder) holder.innerHTML=etapas.map((e,i)=>`<article class="flow-step ${i<ativo?'active':''} ${a&&i===ativo-1?'current':''}"><span>${i+1}</span><div><strong>${esc(e.titulo)}</strong><small>${esc(e.desc)}</small></div></article>`).join('<div class="flow-arrow" aria-hidden="true">→</div>');
+    const badge=$('flow-estado');
+    if(badge){ badge.textContent=a?`Evento: ${TIPOS_UI[a.tipo].rotulo}`:'Em espera'; badge.className='status-pill '+(a?(a.tipo==='fumaca'?'erro':'demo'):'neutro'); }
+    const exp=$('flow-explicacao');
+    if(exp) exp.textContent = a ? `Fluxo atual: ${AMBIENTES[a.dispositivo]?.nome || a.origem} → servidor → interface${ligado && a.fonte !== 'simulacao' ? ' → saídas físicas' : ' → representação visual'}.` : 'Quando um som é detectado, o sistema registra o evento, atualiza a interface e pode acionar as saídas físicas.';
+  }
+
+  async function simularDaBancada(id, botao){
+    if(botao?.disabled)return;
+    if(botao)botao.disabled=true;
+    try{ if(!estado?.dispositivos?.[id]?.ativo){aviso('Ative o canal em Dispositivos antes de testar.');return;} await Api.simular(id); registrarMonitor('Teste solicitado no canal '+id.toUpperCase()+'.','ok'); await atualizarTudo(); }
+    catch(err){aviso(err.message);registrarMonitor('Não foi possível realizar o teste.','error');}
+    finally{if(botao)botao.disabled=false;}
+  }
+  function renderPrototipo(){
+    if(!estado)return;
+    const hw=estado.hardware, a=estado.alerta, fisico=hw.modo==='serial', wokwi=hw.modo==='wokwi', ligado=hw.conectado && (fisico||wokwi);
+    const modo=fisico?'Arduino físico':wokwi?'Wokwi':'Demonstração local';
+    $('prototipo-fonte').textContent=ligado?modo+' conectado':fisico||wokwi?modo+' desconectado':'Modo demonstração';
+    $('prototipo-fonte').className='prototipo-fonte '+(ligado?'':'sim');
+    $('sim-link').textContent=ligado?'● '+modo+' conectado':fisico||wokwi?'○ Aguardando conexão':'● Circuito ilustrativo';
+    $('sim-link').className='sim-link '+(ligado?'is-online':'');
+    $('status-prototipo').textContent=ligado?'Conectado':fisico||wokwi?'Sem conexão':'Simulação';
+    $('sim-hardware-test').disabled=!ligado;
+    $('sim-run').disabled=!estado.dispositivos.porta.ativo;
+    $('sim-hardware-test').title=ligado?'Envia TESTE pela comunicação serial (confirme visualmente a resposta)':'Disponível somente com Arduino ou Wokwi conectado';
+    $('status-origem').textContent=modo;
+    $('status-explicacao').textContent=ligado?'A placa informa o estado ao servidor. Confirme LED e motor presencialmente; a telemetria não prova a resposta elétrica.':'Este desenho representa o projeto; simulações atualizam a tela, mas não ligam LEDs ou motores reais.';
+    const ult=eventos[0];
+    $('status-ultimo').textContent=ult?TIPOS_UI[ult.tipo].rotulo+' · '+horaCurta(ult.hora):'Nenhum';
+    $('arduino-meta').textContent=ligado?'Recebendo dados · '+(hw.porta||modo):fisico||wokwi?'Sem dados da placa':'Pronto para demonstrar';
+    $('placa-atualizacao').textContent=a?'Sinal ativo em '+a.origem:'Em espera';
+    const telem=ligado && diagnostico?.status?.recente === true;
+    const led=ligado?telem&&diagnostico?.saidas?.led===true:!fisico&&!wokwi&&!!a&&estado.exibicao;
+    const motor=ligado?telem&&diagnostico?.saidas?.motor===true:!fisico&&!wokwi&&!!a&&estado.exibicao;
+    const incerto=ligado&&!telem;
+    $('led-label').textContent=incerto?'Sem telemetria recente':ligado?(led?'Firmware informa: ligado':'Firmware informa: desligado'):(led?'Prévia visual acesa':'Sem saída física');
+    $('motor-label').textContent=incerto?'Sem telemetria recente':ligado?(motor?'Firmware informa: ligado':'Firmware informa: desligado'):(motor?'Prévia visual ativa':'Sem saída física');
+    $('sim-live-label').textContent=a?'Evento '+(a.fonte==='simulacao'?'simulado':'recebido'):'Em espera';
+    $('sim-live-dot').className=a?'has-event':'';
+    $('circuito-svg').classList.toggle('circuit-live',!!led);
+    $('circuito-svg').classList.toggle('motor-live',!!motor);
+    $('sim-led').style.fill=led?({'azul':'#499dff','laranja':'#ffae37','vermelho':'#ff5264'}[a?.cor]||'#ffb35e'):'#842c36';
+    $('sim-board-led').style.fill=led?'#43e1b9':'#536c76';
+    $('sim-pulse-ring').setAttribute('opacity',led?'1':'0');
+    const sinal= a?.dispositivo;
+    document.querySelectorAll('[data-sim-test]').forEach(btn=>{
+      const entrada=diagnostico?.entradas?.find(v=>v.id===btn.dataset.simTest);
+      const hint=btn.querySelector('small');
+      const cfg=estado.dispositivos[btn.dataset.simTest];
+      if(hint)hint.textContent=!cfg.ativo?'Desativado · ative em Dispositivos':(ligado&&entrada?.amplitude!=null?'A'+({porta:0,bebe:1,fumaca:2,custom:3}[btn.dataset.simTest])+' · '+entrada.amplitude+' / 1023':'Entrada A'+({porta:0,bebe:1,fumaca:2,custom:3}[btn.dataset.simTest])+' · Teste virtual');
+      btn.disabled=!cfg.ativo;
+      btn.title=cfg.ativo?'Gerar evento de demonstração, sem acionar saídas reais':'Ative o canal em Dispositivos para poder simular';
+      btn.classList.toggle('is-triggered',!!a&&sinal===btn.dataset.simTest);
+      btn.setAttribute('aria-pressed', String(!!a&&sinal===btn.dataset.simTest));
+    });
+    renderFluxoDoAlerta();
+  }
+
+  /* ---------- V3: Mapa de ambientes ---------- */
+  const AMBIENTES = {
+    porta:{nome:'Entrada',descricao:'Campainha e sinais da porta',icone:'porta'},
+    bebe:{nome:'Quarto',descricao:'Som captado no quarto do bebê',icone:'bebe'},
+    fumaca:{nome:'Cozinha',descricao:'Canal que escuta o apito do detector',icone:'fumaca'},
+    custom:{nome:'Sala',descricao:'Canal de som personalizável',icone:'custom'}
+  };
+  function ultimoDo(id){ return eventos.find(e => e.dispositivo === id); }
+  function renderMapa(){
+    if(!estado)return;
+    const ativos=DISPOSITIVOS.filter(d=>estado.dispositivos[d.id].ativo).length;
+    $('mapa-situacao').textContent=ativos+' de 4 canais habilitados';
+    for(const btn of document.querySelectorAll('[data-comodo]')){
+      const id=btn.dataset.comodo, cfg=estado.dispositivos[id], ev=ultimoDo(id);
+      const ativo=estado.alerta?.dispositivo===id;
+      const recente=ev&&Date.now()-new Date(ev.hora).getTime()<90000;
+      btn.classList.toggle('sinal-ativo',!!ativo);
+      btn.classList.toggle('sinal-recente',!ativo&&!!recente);
+      btn.classList.toggle('desativado',!cfg.ativo);
+      btn.setAttribute('aria-pressed',String(comodoSelecionado===id));
+      btn.setAttribute('aria-label',AMBIENTES[id].nome+' — '+(ativo?'alerta ativo':!cfg.ativo?'sensor desativado':recente?'evento recente':'sem alerta')+'. Selecionar cômodo.');
+      btn.querySelector('[data-comodo-sub]').textContent=ativo?(estado.alerta?.fonte==='simulacao'?'TESTE EM CURSO':'SINAL ATIVO'):!cfg.ativo?'CANAL DESATIVADO':recente?'EVENTO RECENTE':'SEM SINAL ATIVO';
+    }
+    const lugar=AMBIENTES[comodoSelecionado],conf=estado.dispositivos[comodoSelecionado],ev=ultimoDo(comodoSelecionado),alertaAtivo=estado.alerta?.dispositivo===comodoSelecionado;
+    const origemSimulada=estado.alerta?.fonte==='simulacao';
+    const conectado=estado.hardware.modo!=='simulado'&&estado.hardware.conectado;
+    const tituloEstado = alertaAtivo?(origemSimulada?'Teste em andamento':'Alerta em andamento'):!conf.ativo?'Canal desativado':conectado?'Canal habilitado':'Pronto para demonstração';
+    const textoEstado = alertaAtivo?(origemSimulada?'Foi gerado um evento simulado. Não corresponde a um risco comprovado.':'Um evento foi recebido. Verifique o local; a detecção por som não confirma o risco.'):
+      !conf.ativo?'Canal desativado: ele não participa da captura nem dos testes. Ative-o em Dispositivos.':
+      conectado?'A placa está conectada, mas a ligação não confirma cada sensor individualmente.':'Este canal pode ser testado pela interface, sem Arduino físico conectado.';
+    $('mapa-detalhe').innerHTML='<div class="ambiente-simbolo">'+icone(lugar.icone)+'</div><span class="detail-status '+(alertaAtivo?'danger':!conf.ativo?'off':'')+'">'+esc(tituloEstado)+'</span>'+
+      '<h2>'+esc(lugar.nome)+'</h2><p class="nota">'+esc(lugar.descricao)+'</p>'+
+      '<div class="ambiente-linhas"><div><span>Captura</span><strong>'+(conf.ativo?'Habilitada':'Desativada')+'</strong></div>'+
+      '<div><span>Sensibilidade</span><strong>'+conf.sensibilidade+'%</strong></div>'+
+      '<div><span>Última ocorrência</span><strong>'+(ev?horaCurta(ev.hora):'Nenhuma')+'</strong></div>'+
+      '<div><span>Origem do sinal</span><strong>'+(ev?esc(ev.fonte==='simulacao'?'Simulação':ev.fonte==='wokwi'?'Wokwi':'Arduino'):'—')+'</strong></div></div>'+
+      '<div class="detail-event"><span>ÚLTIMO REGISTRO</span><strong>'+(ev?esc(TIPOS_UI[ev.tipo].titulo):'Nenhum evento registrado')+'</strong><small>'+(ev?new Date(ev.hora).toLocaleString('pt-BR'):'Os sinais recebidos aparecerão aqui.')+'</small></div>';
+    const fluxo = $('mapa-fluxo');
+    if(fluxo) fluxo.innerHTML = '<span>CAMINHO DO SINAL</span><strong>'+esc(lugar.nome)+' → Arduino (quando conectado) → Servidor Node.js → Painel</strong><small>'+(!conf.ativo?'Canal desativado.':alertaAtivo && origemSimulada?'Teste gerado no servidor. A placa física não foi acionada.':'Eventos reais podem acionar LED e vibração; testes virtuais apenas ilustram os efeitos.')+'</small>';
+    const ajuda=$('mapa-estado-ajuda');
+    if(ajuda){ajuda.textContent=textoEstado;ajuda.className='mapa-estado-ajuda '+(alertaAtivo?'important':!conf.ativo?'off':'');}
+    const testar=$('mapa-testar');
+    if(testar){testar.disabled=!conf.ativo;testar.title=!conf.ativo?'Ative este canal na tela Dispositivos':'Gerar somente um evento simulado para este cômodo';testar.textContent=conf.ativo?'▶ Simular neste cômodo':'Canal desativado';}
+    $('mapa-ativar-link').hidden=conf.ativo;
+  }
+  function ligarMapa(){
+    $('view-mapa').addEventListener('click',e=>{
+      const btn=e.target.closest('[data-comodo]');
+      if(btn){comodoSelecionado=btn.dataset.comodo;renderMapa();}
+    });
+    $('mapa-testar').addEventListener('click',async()=>{
+      const botao=$('mapa-testar');botao.disabled=true;
+      try{if(!estado.dispositivos[comodoSelecionado].ativo){aviso('Ative este canal na página Dispositivos.');return;} await Api.simular(comodoSelecionado);aviso('Simulação criada para '+AMBIENTES[comodoSelecionado].nome+'.');await atualizarTudo();}
+      catch(e){aviso(e.message);}finally{botao.disabled=false;}
+    });
+  }
+
+  /* Telemetria interna do gêmeo visual: não precisa de página própria. */
+  async function atualizarTelemetria(){
+    try{diagnostico=await Api.diagnostico();if(estado)renderPrototipo();}
+    catch(_){diagnostico=null;if(estado)renderPrototipo();}
+  }
+
+  /* ---------- V3: demonstração guiada, conduzida pela pessoa ---------- */
+  const GUIA = [
+    {categoria:'BOAS-VINDAS',titulo:'Conheça o Alerta Visual',sub:'Vamos ver o caminho de um sinal.',texto:'O sistema recebe sinais dos sensores e os traduz em avisos acessíveis. Cada próxima etapa permite simular um canal.',icone:'⌂',botao:'Começar apresentação →'},
+    {categoria:'1 · ENTRADA',titulo:'Campainha na entrada',sub:'Simule alguém chamando na porta.',texto:'Ao clicar, o sistema registra um evento de demonstração, destaca a entrada no mapa e mostra o aviso. Feche o aviso para continuar.',icone:'⌂',botao:'Simular campainha →',sensor:'porta'},
+    {categoria:'2 · QUARTO',titulo:'Som no quarto do bebê',sub:'Teste a resposta do canal do quarto.',texto:'O sinal aparecerá no histórico, no mapa e no protótipo virtual. Um microfone não classifica automaticamente o som como choro real.',icone:'☾',botao:'Simular som do bebê →',sensor:'bebe'},
+    {categoria:'3 · COZINHA',titulo:'Alarme prioritário',sub:'Simule o apito do detector de fumaça.',texto:'A interface realça o aviso prioritário. Isso não detecta fumaça real nem valida uma rota de evacuação.',icone:'!',botao:'Simular alarme de fumaça →',sensor:'fumaca'},
+    {categoria:'4 · CONCLUSÃO',titulo:'Veja o histórico',sub:'A demonstração foi registrada com segurança.',texto:'Os eventos são marcados como simulação. Consulte o mapa e os relatórios para verificar os horários e as categorias.',icone:'✓',botao:'Concluir apresentação →'},
+  ];
+  function renderGuia(){
+    const g=GUIA[etapaGuia];
+    $('guia-titulo').textContent=g.titulo;$('guia-descricao').textContent=g.sub;
+    $('guia-explicacao').textContent=g.text;$('guia-categoria').textContent=g.categoria;
+    $('guia-ilustracao').textContent=g.icone;
+    $('guia-etapa').textContent=(etapaGuia+1)+' de '+GUIA.length;
+    $('guia-progresso').querySelector('span').style.width=((etapaGuia+1)/GUIA.length*100)+'%';
+    $('guia-voltar').disabled=etapaGuia===0||guiaExecutando;
+    $('guia-avancar').textContent=g.botao;
+    $('guia-avancar').disabled=guiaExecutando;
+  }
+  async function proximaEtapaGuia(){
+    if(guiaExecutando)return;
+    if(etapaGuia===GUIA.length-1){location.hash='#relatorios';return;}
+    guiaExecutando=true;
+    // O sensor do passo atual é testado ANTES de avançar.
+    const g=GUIA[etapaGuia];
+    try {
+      if(g.sensor) {await Api.simular(g.sensor); await atualizarTudo();}
+      etapaGuia++;renderGuia();
+      if(g.sensor) aviso('Evento de simulação criado. Feche a tela de alerta para continuar.');
+    } catch(e){aviso(e.message);} finally {guiaExecutando=false;renderGuia();}
+  }
+  function ligarGuia(){
+    $('guia-avancar').addEventListener('click',proximaEtapaGuia);
+    $('guia-voltar').addEventListener('click',()=>{etapaGuia=Math.max(0,etapaGuia-1);renderGuia();});
+    $('guia-reiniciar').addEventListener('click',()=>{etapaGuia=0;renderGuia();aviso('Apresentação reiniciada.');});
+    renderGuia();
+  }
+
+  function renderComoFunciona(){
+    if(!estado) return;
+    const atual = estado.alerta || eventos[0] || null;
+    const conectado = estado.hardware.modo !== 'simulado' && estado.hardware.conectado;
+    const etapas = [
+      ['Som e canal de entrada','Em modo físico, o Arduino lê os canais A0–A3. Na demonstração, o servidor gera um evento identificado como simulado.'],
+      ['Servidor Node.js','O backend recebe ou simula o evento, grava o histórico e comunica aos navegadores em tempo real.'],
+      ['Painel e mapa','O frontend recebe a atualização por WebSocket e destaca o cômodo, o alerta e o histórico.'],
+      ['Luz e vibração','No hardware físico, o Arduino pode acionar os atuadores. A bancada online mostra uma prévia sem energizar componentes.']
+    ];
+    const box = $('exp-etapas');
+    if(box) box.innerHTML = etapas.map((et,i)=>`<article class="exp-step ${atual && i<3?'active':''}"><span>${i+1}</span><div><strong>${esc(et[0])}</strong><small>${esc(et[1])}</small></div></article>`).join('');
+
+    const amb = $('exp-ambientes');
+    if(amb) amb.innerHTML = ['porta','bebe','fumaca','custom'].map(id=>{
+      const cfg = estado.dispositivos[id];
+      const room = AMBIENTES[id];
+      return `<article class="exp-room ${estado.alerta?.dispositivo===id?'hot':''} ${!cfg.ativo?'off':''}"><strong>${esc(room.nome)}</strong><small>${esc(room.descricao)}</small><span>Canal ${id==='porta'?'A0':id==='bebe'?'A1':id==='fumaca'?'A2':'A3'}</span></article>`;
     }).join('');
 
-    // Em simulação, a saída é PREVISTA. Com Arduino, usa-se o estado reportado pelo firmware
-    // quando a telemetria STATUS está disponível; não se promete confirmação elétrica.
-    const telemetriaOk = conectado && hw.ultimaMensagem && Date.now() - new Date(hw.ultimaMensagem).getTime() < 10000;
-    const ledAtivo = conectado ? (telemetriaOk ? !!hw.ledAtivo : false) : (!fisico && !wokwi && !!a && estado.exibicao);
-    const motorAtivo = conectado ? (telemetriaOk ? !!hw.motorAtivo : false) : (!fisico && !wokwi && !!a && estado.exibicao);
-    const semTelemetria = (conectado && !telemetriaOk) || (wokwi && !conectado);
-    const led = $('led-demo');
-    led.className = 'led-demo' + (ledAtivo ? ' ligado' : '');
-    led.style.setProperty('--ledcor', a ? (corPorNome[a.cor] || '#43836a') : '#43836a');
-    $('motor-demo').className = 'motor-demo' + (motorAtivo ? ' ligado' : '');
-    $('led-label').textContent = semTelemetria ? 'Sem telemetria' : ledAtivo ? 'Sinal ativo' : 'Em espera';
-    $('motor-label').textContent = semTelemetria ? 'Sem telemetria' : motorAtivo ? 'Motor ativo' : 'Em espera';
-    $('led-detalhe').textContent = !fisico && !wokwi ? 'Visualização demonstrativa' : semTelemetria ? 'Aguardando resposta da placa' : 'Estado informado pelo firmware';
-    $('motor-detalhe').textContent = !fisico && !wokwi ? 'Visualização demonstrativa' : semTelemetria ? 'Aguardando resposta da placa' : 'Estado informado pelo firmware';
-    $('placa-nota').textContent = !fisico && !wokwi
-      ? 'Demonstração: os LEDs e o motor são representações digitais, não equipamentos físicos. Clique em “Simular este sinal” para ver a resposta.'
-      : telemetriaOk
-        ? 'O firmware está enviando telemetria de saída. Trata-se do estado informado pelo código (em Wokwi, virtual), não de uma medição elétrica em componentes reais.'
-        : 'Conexão serial identificada. Ainda sem telemetria de saída recente: não é possível confirmar se o LED ou o motor foram acionados.';
+    const pill = $('exp-pill');
+    if(pill){ pill.textContent = atual ? `Último evento: ${TIPOS_UI[atual.tipo].rotulo}` : 'Em espera'; pill.className = 'status-pill ' + (atual ? (atual.tipo==='fumaca'?'erro':'demo') : 'neutro'); }
+    const timeline = $('exp-linha-tempo');
+    const steps = [
+      {title:'1. O sensor capta o som',text:atual?`${AMBIENTES[atual.dispositivo]?.nome || atual.origem} gerou o evento ${TIPOS_UI[atual.tipo].rotulo.toLowerCase()}.`:'O sistema fica aguardando os sons configurados nos canais ativos.'},
+      {title:'2. O backend interpreta e salva',text:atual?'O backend registrou horário, origem, categoria e duração do evento.':'Assim que um evento chega, ele entra no histórico e pode virar alerta.'},
+      {title:'3. O mapa destaca o cômodo',text:atual?'O ambiente relacionado é destacado no mapa e no painel lateral.':'A planta da casa mostra qual canal pertence a cada cômodo.'},
+      {title:'4. O alerta aparece na interface',text:atual?'O usuário vê o aviso, consegue silenciar e acompanhar a resposta visual.':'O painel permanece atualizado em tempo real por WebSocket.'},
+      {title:'5. O Arduino executa a resposta',text:conectado?(atual && atual.fonte !== 'simulacao' ? 'Com placa conectada, o firmware pode acionar LED e vibração.' : 'Com a placa conectada, o teste físico pode ser acionado separadamente.'):'Sem Arduino físico, a bancada mostra a lógica do circuito em modo ilustrativo.'}
+    ];
+    if(timeline) timeline.innerHTML = steps.map((s,i)=>`<li class="${atual && i<4?'active':''}"><span>${i+1}</span><div><strong>${esc(s.title)}</strong><p>${esc(s.text)}</p></div></li>`).join('');
+
+    const hard = $('exp-hard-list');
+    if(hard) hard.innerHTML = [
+      ['Placa Arduino','Controla as entradas A0–A3 e recebe comandos do backend.'],
+      ['Protoboard','Representa as conexões dos componentes usados no protótipo.'],
+      ['LED / luz visual','Mostra o padrão visual do alerta quando a saída é acionada.'],
+      ['Motor de vibração','Representa o retorno tátil do sistema.'],
+      ['Modo atual', conectado ? 'Hardware conectado e monitorado pelo servidor.' : estado.hardware.modo==='wokwi' ? 'Simulação Wokwi aguardando conexão.' : 'Demonstração local, sem placa física.']
+    ].map(([t,d])=>`<div class="exp-hard-row"><strong>${esc(t)}</strong><small>${esc(d)}</small></div>`).join('');
   }
 
   /* ---------- Conexão e dados ---------- */
@@ -464,6 +662,8 @@
       renderRelatorios();
       renderPrototipo();
       renderBoasVindas();
+      renderMapa();
+      renderComoFunciona();
       const indicador = $('contagem-nav');
       indicador.hidden = !estado.alerta; 
       if (!estado.alerta) esconderAlerta();
@@ -474,20 +674,23 @@
 
   function aoReceber(m) {
     if (m.tipo === 'evento') {
+      registrarMonitor('Canal '+m.evento.dispositivo+': '+TIPOS_UI[m.evento.tipo].rotulo+' ('+(m.evento.fonte==='simulacao'?'simulação':m.evento.fonte)+').',m.evento.tipo==='fumaca'?'danger':'ok');
       if (m.alertar) mostrarAlerta(m.alerta);
       else aviso('Novo evento registrado: ' + TIPOS_UI[m.evento.tipo].titulo);
       atualizarTudo();
     } else if (m.tipo === 'alerta_fim') {
+      registrarMonitor('Alerta encerrado ('+m.motivo+').','info');
       esconderAlerta();
       aviso(m.motivo === 'silenciado' ? 'Alerta silenciado.' : 'Alerta encerrado.');
       atualizarTudo();
     } else if (m.tipo === 'hardware') {
-      if (estado) { estado.hardware = m.hardware; pintarConexao(); renderPrototipo(); }
+      registrarMonitor('Estado de hardware atualizado.','info');
+      if (estado) { estado.hardware = m.hardware; pintarConexao(); renderPrototipo(); renderComoFunciona(); }
     } else if (m.tipo === 'teste') {
       aviso('Comando de teste solicitado. Consulte o estado do hardware para confirmar.');
-    } else if (m.tipo === 'notificacao') {
-      aviso('Pedido registrado neste protótipo. Nenhuma mensagem foi enviada.');
-      atualizarTudo();
+    } else if (m.tipo === 'telemetria') {
+      diagnostico=m.diagnostico;
+      if (estado) { renderPrototipo(); renderComoFunciona(); }
     } else {
       atualizarTudo();
     }
@@ -501,12 +704,11 @@
     $('tipo-rel').addEventListener('change', renderRelatorios);
     $('btn-exportar').addEventListener('click', exportarCsv);
     $('data-atual').textContent = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
-    $('btn-teste-proto').addEventListener('click', async () => {
-      try { await Api.simular($('sel-teste-proto').value); }
-      catch (_) { aviso('Não foi possível iniciar a demonstração.'); }
-    });
     ligarEventosDispositivos();
     ligarEventosAlertas();
+    ligarMapa();
+    construirBancada();
+    ligarGuia();
 
     $('alerta-silenciar').addEventListener('click', async () => {
       try { await Api.silenciar(); } catch (_) { esconderAlerta(); }
@@ -529,6 +731,9 @@
       if (ok) atualizarTudo();
     });
     await atualizarTudo();
+    await atualizarTelemetria();
+    setInterval(()=>{if(location.hash==='#prototipo')atualizarTelemetria();},4000);
+    setInterval(()=>{if (location.hash==='#mapa') renderMapa();},4000);
     if (estado && estado.alerta) mostrarAlerta(estado.alerta);
   });
 })();

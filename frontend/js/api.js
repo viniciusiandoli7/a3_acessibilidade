@@ -12,7 +12,7 @@ const Api = {
       headers: { 'Content-Type': 'application/json' },
       body: corpo ? JSON.stringify(corpo) : undefined
     });
-    if (!r.ok) throw new Error('Falha ao enviar ' + url);
+    if (!r.ok) { const erro = await r.json().catch(()=>({})); throw new Error(erro.erro || 'Falha ao enviar ' + url); }
     return r.json();
   },
 
@@ -25,7 +25,7 @@ const Api = {
   simular: (dispositivo) => Api.enviar('POST', '/api/simular', { dispositivo }),
   silenciar: () => Api.enviar('POST', '/api/alerta/silenciar'),
   testarHardware: () => Api.enviar('POST', '/api/hardware/testar'),
-  notificar: () => Api.enviar('POST', '/api/notificar'),
+  diagnostico: () => Api.obter('/api/diagnostico'),
 
   conectar(aoReceber, aoMudarConexao) {
     const abrir = () => {

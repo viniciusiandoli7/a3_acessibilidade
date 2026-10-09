@@ -12,7 +12,7 @@ const uint8_t R = 9, G = 10, B = 11, VIB = 5;
 bool activeChannel[4] = {true, true, true, false};
 bool previous[4] = {false, false, false, false};
 unsigned long lastEvent[4] = {0,0,0,0};
-unsigned long lastStatus = 0, alertStart = 0, alertMs = 0;
+unsigned long lastStatus = 0, lastReadings = 0, alertStart = 0, alertMs = 0;
 bool alertActive = false, ledOn = false, vibOn = false;
 uint8_t red = 0, green = 0, blue = 0, pattern = 1;
 char input[64];
@@ -73,6 +73,12 @@ void loop() {
     previous[i]=pressed;
   }
   updateOutput();
+  if (millis()-lastReadings>=2000) {
+    lastReadings=millis();
+    Serial.print("READINGS");
+    for(uint8_t i=0;i<4;i++){Serial.print(',');Serial.print(activeChannel[i]?(previous[i]?650:0):-1);}
+    Serial.println();
+  }
   if (millis()-lastStatus>=1000) {
     lastStatus=millis();
     Serial.print("STATUS,");Serial.print(alertActive?1:0);Serial.print(',');

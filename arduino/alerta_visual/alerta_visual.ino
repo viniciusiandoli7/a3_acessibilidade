@@ -16,12 +16,13 @@
     Arduino -> PC:  HELLO,alerta_visual
                     EVT,<canal>,<pico>
                     STATUS,<alerta>,<led>,<motor> (cada 1 segundo)
+                    READINGS,<A0>,<A1>,<A2>,<A3> (amplitude; -1 = sem leitura)
     PC -> Arduino:  CFG,<canal>,<limiar>              (amplitude mínima 0-1023)
                     ATIVO,<canal>,<0|1>
                     ALERTA,<r>,<g>,<b>,<padrao>,<segundos>
                     PARAR
                     TESTE
-    Padrões: 1 = pisca lento | 2 = pulsante suave | 3 = estroboscópico (2 Hz, seguro)
+    Padrões: 1 = pisca lento | 2 = pulsante suave | 3 = intermitente (2 Hz; considerar fotossensibilidade)
 */
 
 const uint8_t PINOS_SOM[4] = {A0, A1, A2, A3};
@@ -43,6 +44,8 @@ unsigned long duracaoAlerta = 0;
 uint8_t corR = 0, corG = 0, corB = 0, padrao = 1;
 bool ledLigado = false, motorLigado = false;
 unsigned long ultimaTelemetria = 0;
+unsigned long ultimaLeitura = 0;
+int ultimaAmplitude[4] = {-1,-1,-1,-1};
 
 char buffer[48];
 uint8_t tamanhoBuffer = 0;
@@ -86,7 +89,7 @@ void atualizarAlerta() {
     float fase = (t % 2000) / 2000.0;
     luz = (uint8_t)(127.5 + 127.5 * sin(fase * 6.28318));
     vibrar = (t % 2000) < 400;
-  } else {                                 // estroboscópico a 2 Hz (abaixo do limite de 3 Hz)
+  } else {                                 // intermitente a 2 Hz (ainda considerar fotossensibilidade)
     luz = ((t % 500) < 250) ? 255 : 0;
     vibrar = (t % 250) < 150;
   }
@@ -150,9 +153,10 @@ void setup() {
 void loop() {
   for (uint8_t c = 0; c < 4; c++) {
     lerSerial();
-    if (!ativo[c]) continue;
-    if (alertaAtivo && c != 2) continue;    // ruído do motor não deve disparar outros canais; fumaça sempre escuta
+    if (!ativo[c]) { ultimaAmplitude[c] = -1; continue; }
+    if (alertaAtivo && c != 2) { ultimaAmplitude[c] = -1; continue; }    // ruído do motor não deve disparar outros canais; fumaça sempre escuta
     uint16_t pico = lerPico(c);
+    ultimaAmplitude[c] = pico;
     if (pico >= limiar[c] && millis() - ultimoEvento[c] > COOLDOWN_MS) {
       ultimoEvento[c] = millis();
       Serial.print("EVT,");
@@ -162,6 +166,14 @@ void loop() {
     }
   }
   atualizarAlerta();
+  if (millis() - ultimaLeitura >= 2000) {
+    ultimaLeitura = millis();
+    Serial.print("READINGS");
+    for (uint8_t i = 0; i < 4; i++) {
+      Serial.print(','); Serial.print(ultimaAmplitude[i]);
+    }
+    Serial.println();
+  }
   if (millis() - ultimaTelemetria >= 1000) {
     ultimaTelemetria = millis();
     // Reporta a lógica do firmware, sem leitura de corrente real nos atuadores.

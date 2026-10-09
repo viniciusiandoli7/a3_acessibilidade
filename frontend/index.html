@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#081528">
-  <meta name="description" content="Alerta Visual: acompanhe sinais importantes de sua casa com luz, vibração e informações acessíveis.">
+  <meta name="description" content="Alerta Visual — projeto acadêmico de acessibilidade desenvolvido por Vinicius Iandoli, Lais Toyama, Vinicius Centurion e Cesar Melo.">
+  <meta name="author" content="Vinicius Iandoli, Lais Toyama, Vinicius Centurion, Cesar Melo">
   <title>Painel | Sistema de Alerta Visual</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/v4.css"><link rel="stylesheet" href="css/v6.css">
 </head>
 <body>
   <a href="#conteudo" class="pular-link">Pular para o conteúdo</a>
@@ -19,13 +20,18 @@
           <li><a data-view="dispositivos" href="#dispositivos"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M5 3h14v18H5zM8 7h8M8 11h5M8 16h8"/></svg></span>Dispositivos</a></li>
           <li><a data-view="alertas" href="#alertas"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4"/></svg></span>Alertas <span class="contagem-nav" id="contagem-nav" hidden>1</span></a></li>
           <li><a data-view="relatorios" href="#relatorios"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/></svg></span>Relatórios</a></li>
-          <li class="menu-separador"><a data-view="prototipo" href="#prototipo"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 8h16v10H4zM8 5h8M8 12h8M12 8v12"/></svg></span>Protótipo ao vivo</a></li>
+          <li><a data-view="mapa" href="#mapa"><span class="nav-icone" aria-hidden="true">⌂</span>Mapa da casa</a></li>
+          <li><a data-view="como-funciona" href="#como-funciona"><span class="nav-icone" aria-hidden="true">◎</span>Como funciona</a></li>
+          <li class="menu-separador"><a data-view="guia" href="#guia"><span class="nav-icone" aria-hidden="true">▷</span>Demonstração</a></li>
+          <li><a data-view="prototipo" href="#prototipo"><span class="nav-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 8h16v10H4zM8 5h8M8 12h8M12 8v12"/></svg></span>Protótipo ao vivo</a></li>
         </ul></nav>
       </div>
       <div class="lateral-rodape">
         <div class="conexao" id="conexao" role="status" aria-live="polite"><span class="ponto" id="conexao-ponto" aria-hidden="true"></span><div><strong id="conexao-texto">Conectando…</strong><small id="conexao-ajuda">Aguardando sistema</small></div></div>
-        <a href="#prototipo" class="ajuda-link">◎ &nbsp; Como funciona?</a>
-        <p class="assinatura">Protótipo de acessibilidade • v2.0</p>
+        <details class="creditos-grupo"><summary>Equipe de desenvolvimento <span aria-hidden="true">⌄</span></summary>
+          <p>Vinicius Iandoli<br>Lais Toyama<br>Vinicius Centurion<br>Cesar Melo</p>
+        </details>
+        <p class="assinatura">Projeto acadêmico · v6.0</p>
       </div>
     </aside>
     <main id="conteudo" tabindex="-1">
@@ -45,6 +51,11 @@
           <section class="cartao tabela-cartao" aria-labelledby="h-hist-dash"><div class="cabecalho-cartao"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2 id="h-hist-dash">Atividades recentes</h2></div><a href="#relatorios" class="btn btn-outline btn-sm">Ver histórico completo →</a></div><div class="rolagem"><table><thead><tr><th scope="col">HORÁRIO</th><th scope="col">EVENTO</th><th scope="col">AMBIENTE</th><th scope="col">DURAÇÃO</th></tr></thead><tbody id="tbody-dash"></tbody></table></div></section>
           <section class="cartao lista-hw" aria-labelledby="h-hw"><div class="cabecalho-cartao"><div><p class="eyebrow">EQUIPAMENTOS</p><h2 id="h-hw">Seu sistema</h2></div><span class="status-pill neutro" id="estado-hw-resumo">Verificando</span></div><ul id="lista-hw"></ul><a class="link-suave" href="#prototipo">Acompanhar protótipo ao vivo →</a></section>
         </div>
+        <div class="atalhos-3" aria-label="Acessos rápidos">
+          <a href="#mapa" class="atalho-3"><span aria-hidden="true">⌂</span><strong>Mapa da casa</strong><small>Veja os cômodos e os sinais</small><b aria-hidden="true">→</b></a>
+          <a href="#prototipo" class="atalho-3"><span aria-hidden="true">⌘</span><strong>Bancada Arduino</strong><small>Explore o circuito interativo</small><b aria-hidden="true">→</b></a>
+          <a href="#guia" class="atalho-3"><span aria-hidden="true">▷</span><strong>Apresentar projeto</strong><small>Comece um teste guiado</small><b aria-hidden="true">→</b></a>
+        </div>
       </section>
       <section id="view-dispositivos" class="view" hidden>
         <div class="intro-secao"><p class="eyebrow">PERSONALIZAÇÃO</p><h2>Os sinais do seu jeito</h2><p>Escolha quais canais acompanhar. Ative, ajuste a sensibilidade e veja a cor de cada alerta.</p></div>
@@ -57,32 +68,163 @@
         <div class="grade-alertas"><article class="cartao" id="al-principal"></article><article class="cartao" id="al-hardware"></article><article class="cartao" id="al-malha"></article><article class="cartao" id="al-evacuacao"></article></div>
       </section>
       <section id="view-prototipo" class="view" hidden>
-        <div class="intro-secao prototipo-intro"><div><p class="eyebrow">CONHEÇA O QUE ESTÁ POR TRÁS</p><h2>Seu protótipo, acontecendo ao vivo.</h2><p>Acompanhe a comunicação entre os sensores, o Arduino e os avisos na tela. É possível testar mesmo sem o equipamento físico.</p></div><span class="prototipo-fonte" id="prototipo-fonte">Aguardando estado…</span></div>
-        <div class="prototipo-grade">
-          <section class="cartao placa-cartao" aria-labelledby="placa-titulo">
-            <div class="cabecalho-cartao"><div><p class="eyebrow">REPRESENTAÇÃO FUNCIONAL</p><h2 id="placa-titulo">Arduino + sinais de casa</h2></div><span class="placa-atualizacao" id="placa-atualizacao">Aguardando atualização</span></div>
-            <div class="circuito">
-              <div class="placa-sensores" id="placa-sensores"></div>
-              <div class="placa-conector" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-              <div class="arduino-corpo"><span class="arduino-topo">ARDUINO <strong>UNO</strong></span><div class="arduino-chip" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div><span class="arduino-meta" id="arduino-meta">Aguardando conexão</span><small>Leitura dos sensores · envio de comandos</small><span class="arduino-porta" aria-hidden="true"></span></div>
-              <div class="placa-conector saida-fios" aria-hidden="true"><span></span><span></span><span></span></div>
-              <div class="placa-saidas"><div class="saida-campo"><span class="mini-label">LUZ</span><div class="led-demo" id="led-demo" aria-hidden="true"><span></span></div><strong id="led-label">Em espera</strong><small id="led-detalhe">LED pronto para o próximo alerta</small></div><div class="saida-campo"><span class="mini-label">VIBRAÇÃO</span><div class="motor-demo" id="motor-demo" aria-hidden="true">≈</div><strong id="motor-label">Em espera</strong><small id="motor-detalhe">Motor pronto para o próximo alerta</small></div></div>
+        <div class="intro-secao lab-intro"><div><p class="eyebrow">LABORATÓRIO DIGITAL</p><h2>Arduino, de perto.</h2><p>Uma bancada interativa para entender cada ligação e acompanhar os sinais do sistema. A visualização não executa o firmware — recebe os estados do servidor.</p></div><span id="prototipo-fonte" class="prototipo-fonte">Aguardando…</span></div>
+        <section class="bancada-intro" aria-label="Como utilizar a bancada"><div><span>01</span> Escolha um sensor na coluna esquerda</div><div><span>02</span> Observe a simulação no centro</div><div><span>03</span> Veja o resultado no monitor à direita</div></section>
+        <details class="cartao flow-shell flow-collapsible"><summary><span>◎ &nbsp; Entender o caminho do alerta</span><span class="flow-summary-end"><span id="flow-estado" class="status-pill neutro">Em espera</span> <span aria-hidden="true">⌄</span></span></summary><div class="flow-body"><h2 id="h-flow-prototipo" class="sr-only">Do sensor até o aviso visual</h2><div id="flow-steps" class="flow-steps" aria-label="Etapas do processamento do alerta"></div><p id="flow-explicacao" class="nota">Um evento percorre sensor, backend, interface e saídas.</p></div></details>
+        <section class="cartao simulator-shell" aria-label="Bancada visual interativa do Arduino">
+          <div class="sim-toolbar"><div class="sim-breadcrumb"><span class="sim-orb"></span><span>PROTÓTIPO / UNO R3</span><span class="sim-slash">/</span><strong>Visão do circuito</strong></div><div class="sim-toolbar-end"><span id="sim-link" class="sim-link">Aguardando conexão</span><button type="button" id="sim-reset" class="btn btn-outline btn-sm">↺ &nbsp; Silenciar</button><button type="button" id="sim-run" class="btn btn-escuro btn-sm">▶ &nbsp; Simular campainha</button></div></div>
+          <div class="sim-workspace">
+            <aside class="sim-library" aria-label="Componentes e testes"><div class="sim-panel-head"><p class="eyebrow">TESTAR EVENTOS</p><h3>Escolha um sensor</h3><small>Esta opção cria eventos de demonstração, sem acionar a placa física.</small></div>
+              <div id="sim-components" class="sim-components"></div>
+              <div class="sim-library-help"><span class="sim-help-icon">i</span><span>Cada teste entra no histórico como <strong>simulação</strong>, não como leitura física.</span></div>
+            </aside>
+            <div class="sim-stage"><div class="sim-grid" aria-hidden="true"></div>
+              <div class="sim-stage-header"><span>ESQUEMA FUNCIONAL · VISTA SUPERIOR</span><span class="sim-status-led"><i id="sim-live-dot"></i><span id="sim-live-label">Em espera</span></span></div>
+              <svg id="circuito-svg" class="circuito-svg" viewBox="0 0 1060 615" role="img" aria-label="Representação esquemática de uma placa Arduino Uno ligada a protoboard, sensores, LED e motor. As cores dos fios identificam conexões ilustrativas.">
+                <defs>
+                  <pattern id="holes" width="20" height="16" patternUnits="userSpaceOnUse"><circle cx="10" cy="8" r="2.7" fill="#506076" stroke="#9faec4" stroke-width=".5"/></pattern>
+                  <filter id="board-shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="#02070d" flood-opacity=".7"/></filter>
+                  <filter id="led-glow"><feGaussianBlur stdDeviation="10" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <g class="wire-group" stroke-width="4.3" stroke-linecap="round" fill="none">
+                  <path class="wire red-wire" d="M340 198 Q350 145 415 145 L790 145 Q855 145 855 272"/>
+                  <path class="wire blue-wire" d="M343 232 L455 232 Q495 232 495 267 L611 267"/>
+                  <path class="wire orange-wire" d="M343 262 Q420 262 420 352 L655 352"/>
+                  <path class="wire green-wire" d="M343 298 Q440 295 450 420 L838 420 L838 345"/>
+                  <path class="wire ground-wire" d="M340 445 L383 445 L383 484 L945 484 L945 335"/>
+                </g>
+                <g filter="url(#board-shadow)">
+                  <rect x="60" y="160" width="315" height="320" rx="17" fill="#126ca0" stroke="#399bcb" stroke-width="3"/>
+                  <rect x="58" y="194" width="57" height="64" rx="4" fill="#a4b7c4" stroke="#e2eef8" stroke-width="3"/>
+                  <rect x="51" y="202" width="29" height="47" fill="#e7edf0"/>
+                  <rect x="111" y="395" width="55" height="55" rx="4" fill="#212b32" stroke="#778996" stroke-width="3"/>
+                  <rect x="187" y="320" width="127" height="68" rx="6" fill="#151d2a" stroke="#63717b" stroke-width="3"/>
+                  <g stroke="#b0c1cc" stroke-width="3"><path d="M191 315v-12m12 12v-12m12 12v-12m12 12v-12m12 12v-12m12 12v-12m12 12v-12m12 12v-12m12 12v-12m12 12v-12"/><path d="M191 391v11m12-11v11m12-11v11m12-11v11m12-11v11m12-11v11m12-11v11m12-11v11m12-11v11m12-11v11m12-11v11"/></g>
+                  <rect x="165" y="180" width="187" height="22" rx="4" fill="#172431"/>
+                  <rect x="165" y="431" width="187" height="22" rx="4" fill="#172431"/>
+                  <g id="sim-analog-pins" fill="#b9c8cf"></g>
+                  <text x="185" y="235" fill="#d4f7ff" font-size="23" font-weight="700" font-family="Arial,sans-serif">ARDUINO</text><text x="185" y="261" fill="#d4f7ff" font-size="44" font-weight="900" font-family="Arial,sans-serif">UNO</text>
+                  <text x="185" y="289" fill="#89e0ff" font-size="12" letter-spacing="2">REV 3 · ESQUEMA</text>
+                  <circle cx="332" cy="284" r="12" fill="#173541" stroke="#8ad8eb" stroke-width="2"/><circle cx="332" cy="284" r="5" id="sim-board-led" fill="#536c76"/>
+                  <text x="197" y="422" fill="#adcede" font-size="12" font-family="monospace">ANALOG IN</text>
+                </g>
+                <g filter="url(#board-shadow)">
+                  <rect x="464" y="160" width="534" height="300" rx="17" fill="#e8edf2" stroke="#f4f8fa" stroke-width="3"/>
+                  <rect x="489" y="207" width="486" height="103" fill="url(#holes)"/>
+                  <rect x="489" y="335" width="486" height="90" fill="url(#holes)"/>
+                  <rect x="485" y="318" width="489" height="8" rx="4" fill="#c7d1dc"/>
+                  <path d="M487 195H975M487 440H975" stroke="#d86562" stroke-width="4"/>
+                  <path d="M487 202H975M487 448H975" stroke="#4b99c8" stroke-width="2"/>
+                  <text x="497" y="185" font-size="14" fill="#bb5858">+</text><text x="518" y="185" font-size="14" fill="#456f9b">−</text>
+                  <rect x="580" y="232" width="18" height="45" rx="5" fill="#a42130" stroke="#ff7a7b" stroke-width="2"/><circle cx="589" cy="234" r="10" id="sim-led" fill="#842c36" stroke="#cf6c74" stroke-width="3"/><path d="M584 277v42m10-42v42" stroke="#b7b4b6" stroke-width="3"/>
+                  <rect x="666" y="267" width="37" height="43" rx="5" fill="#1c2934" stroke="#75818d" stroke-width="3"/><circle cx="685" cy="290" r="10" fill="#9a302b"/><circle cx="685" cy="290" r="5" fill="#d2786a"/>
+                  <circle cx="806" cy="291" r="36" fill="#2d4866" stroke="#527fa3" stroke-width="9"/><circle cx="806" cy="291" r="19" fill="#1761aa" stroke="#81bafa" stroke-width="2"/><path d="M806 272v38m-19-19h38" stroke="#a3cbee" stroke-width="3"/>
+                  <rect x="903" y="251" width="59" height="70" rx="10" fill="#202a33" stroke="#525d68" stroke-width="4"/><circle cx="933" cy="286" r="20" id="sim-motor" fill="#2d333a" stroke="#6d7780" stroke-width="5"/><circle cx="933" cy="286" r="7" fill="#1a212a"/>
+                </g>
+                <g class="sim-floating-labels" font-family="Arial,sans-serif" font-size="16"><text x="82" y="144">PLACA CONTROLADORA</text><text x="468" y="137">PROTOBOARD / CIRCUITO DE TESTE</text><text x="575" y="509">LED RGB · D9–D11</text><text x="884" y="509">MOTOR · D5</text><text x="676" y="370" fill="#ffc06d">ENTRADA</text></g>
+                <g id="sim-pulse-ring" opacity="0"><circle cx="589" cy="235" r="22" fill="none" stroke="#ff5566" stroke-width="3"/></g>
+              </svg>
+              <div class="sim-legend"><span><i class="leg-azul"></i> Sensores A0–A3</span><span><i class="leg-vermelho"></i> LED / alerta</span><span><i class="leg-verde"></i> Saídas digitais</span></div>
             </div>
-            <p class="placa-nota" id="placa-nota">Este é um gêmeo visual do circuito. O estado exibido depende dos dados disponíveis e não substitui a verificação física dos componentes.</p>
-          </section>
-          <aside class="prototipo-lateral">
-            <div class="cartao status-prototipo"><p class="eyebrow">SITUAÇÃO ATUAL</p><div class="status-linha"><span class="status-bolinha" id="status-bolinha" aria-hidden="true"></span><h3 id="status-prototipo">Preparando conexão</h3></div><p id="status-explicacao">Verificando se há um Arduino conectado.</p><dl class="status-dados"><div><dt>Origem dos dados</dt><dd id="status-origem">—</dd></div><div><dt>Último sinal</dt><dd id="status-ultimo">—</dd></div><div><dt>Placa / porta</dt><dd id="status-porta">—</dd></div></dl></div>
-            <div class="cartao teste-prototipo"><p class="eyebrow">EXPERIMENTE AGORA</p><h3>Faça um teste</h3><p>Escolha uma situação. O sistema vai apresentar como seria o alerta.</p><label for="sel-teste-proto">Qual sinal deseja testar?</label><select id="sel-teste-proto"><option value="porta">Alguém na porta</option><option value="bebe">Som no quarto do bebê</option><option value="fumaca">Alarme de fumaça (teste)</option><option value="custom">Som personalizado</option></select><button type="button" id="btn-teste-proto" class="btn btn-escuro btn-bloco">Simular este sinal <span aria-hidden="true">→</span></button><p class="teste-nota">O botão cria um evento de demonstração. Não significa que um sensor físico detectou o som.</p></div>
-          </aside>
-        </div>
+            <aside class="sim-inspector"><div class="sim-panel-head"><p class="eyebrow">MONITOR</p><h3>O que está acontecendo?</h3><small>Fonte e estado informados pelo backend</small></div>
+              <div class="sim-inspector-item"><span>Conexão</span><strong id="status-prototipo">Verificando</strong></div>
+              <div class="sim-inspector-item"><span>Fonte</span><strong id="status-origem">—</strong></div>
+              <div class="sim-inspector-item"><span>LED (real/prévia)</span><strong id="led-label">—</strong></div>
+              <div class="sim-inspector-item"><span>Vibração (real/prévia)</span><strong id="motor-label">—</strong></div>
+              <div class="sim-inspector-item"><span>Último sinal</span><strong id="status-ultimo">—</strong></div>
+              <div class="sim-monitor"><div class="sim-monitor-title"><span class="sim-terminal">›_</span> Mensagens</div><div id="sim-monitor-lines" class="sim-monitor-lines" role="log" aria-live="off"><p>Iniciando bancada…</p></div></div>
+              <div class="sim-inspector-footer"><button class="btn btn-escuro btn-bloco" type="button" id="sim-hardware-test">Testar saídas físicas</button><a class="btn btn-outline btn-bloco" href="#dispositivos">Configurar sensores ↗</a><p id="status-explicacao" class="nota">A bancada desenhada é ilustrativa; a confirmação das saídas depende da placa e da telemetria.</p></div>
+            </aside>
+          </div>
+          <div class="sim-footer"><div><span class="sim-foot-indicator"></span><span id="arduino-meta">Aguardando dados</span></div><div><span id="placa-atualizacao">Sem eventos</span><span>•</span><span>Comunicação REST + WebSocket</span></div></div>
+        </section>
       </section>
 
-
+      <section id="view-mapa" class="view" hidden>
+        <div class="intro-secao mapa-intro"><div><p class="eyebrow">VISÃO DOS AMBIENTES</p><h2>Um olhar para cada canto da casa.</h2><p>Explore a planta interativa e acompanhe os sinais recebidos em cada ambiente.</p></div><span id="mapa-situacao" class="status-pill neutro">Verificando sensores…</span></div>
+        <div class="mapa-layout blueprint-layout">
+          <section class="cartao blueprint-card" aria-label="Planta baixa com sensores interativos">
+            <div class="blueprint-topbar"><span><i class="bp-led"></i> PLANTA / RESIDÊNCIA MODELO</span><span>VISTA SUPERIOR <b>·</b> ESCALA ILUSTRATIVA</span></div>
+            <div class="blueprint-frame"><div class="blueprint-grid"></div>
+              <svg class="blueprint-svg" viewBox="0 0 1000 650" role="img" aria-label="Planta esquemática com cozinha à esquerda, quarto à direita, sala no centro, escritório e garagem na parte inferior. Ícones clicáveis indicam quatro sensores do sistema.">
+                <defs><filter id="bp-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.6"/></filter><pattern id="bp-diagonal" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="11" stroke="#55a2bf" stroke-opacity=".1" stroke-width="2"/></pattern></defs>
+                <g class="bp-walls" fill="none" stroke="#74d0e7" stroke-linejoin="miter" stroke-linecap="square">
+                  <rect x="66" y="58" width="857" height="532" stroke-width="11" opacity=".15" filter="url(#bp-glow)"/>
+                  <path d="M66 58H923V590H66Z" stroke-width="6"/>
+                  <path d="M70 65H916V583H73Z" stroke-width="1.3" opacity=".64"/>
+                  <path d="M390 58V294 M390 336V388 M390 432V580" stroke-width="5"/>
+                  <path d="M688 58V242 M688 300V432 M688 481V588" stroke-width="5"/>
+                  <path d="M69 389H323 M367 389H390 M390 389H566 M617 389H688 M688 389H801 M853 389H920" stroke-width="5"/>
+                  <path d="M390 306H688 M688 307H921" stroke-width="4"/>
+                  <path d="M242 390V589" stroke-width="4"/>
+                </g>
+                <g class="bp-windows" fill="none" stroke="#b8f6ff" stroke-width="3"><path d="M135 58h88m6 0h86 M139 70h175 M688 58h118m5 0h56 M687 70h180 M65 238v84 M76 239v83 M917 213v75 M928 214v73 M463 589h99 M464 577h98"/></g>
+                <g class="bp-doors" stroke="#80cade" stroke-width="2.4" fill="none"><path d="M390 294v41h41"/><path d="M431 294a41 41 0 0 1-41 41"/><path d="M688 242v58h58"/><path d="M746 242a58 58 0 0 1-58 58"/><path d="M566 389v44h51"/><path d="M566 433a51 51 0 0 0 51-44"/><path d="M323 389v43h44"/><path d="M367 432a44 44 0 0 0-44-43"/><path d="M800 389v51h52"/><path d="M852 440a52 52 0 0 0-52-51"/></g>
+                <g class="bp-furniture" fill="none" stroke="#4b9db6" stroke-width="2.1" stroke-opacity=".78">
+                  <rect x="86" y="88" width="233" height="30" rx="2"/><rect x="96" y="103" width="66" height="12"/><rect x="177" y="104" width="92" height="9"/>
+                  <rect x="107" y="175" width="65" height="107" rx="4"/><circle cx="139" cy="194" r="12"/><circle cx="139" cy="259" r="12"/><rect x="223" y="187" width="110" height="70" rx="4"/><circle cx="252" cy="210" r="7"/><circle cx="303" cy="210" r="7"/>
+                  <rect x="733" y="108" width="146" height="128" rx="5"/><path d="M747 113v27h119v-27 M733 210h146"/><rect x="729" y="270" width="152" height="20"/>
+                  <rect x="445" y="120" width="140" height="56" rx="7"/><path d="M445 151h140 M470 120v56 M560 120v56"/>
+                  <rect x="458" y="224" width="110" height="38" rx="10"/><rect x="447" y="269" width="145" height="18" rx="7"/>
+                  <rect x="97" y="438" width="116" height="21"/><rect x="130" y="457" width="43" height="62" rx="5"/><circle cx="157" cy="545" r="17"/>
+                  <rect x="432" y="466" width="146" height="32"/><rect x="461" y="516" width="86" height="25"/>
+                  <path d="M742 540h120l-6-70-105-1z"/><rect x="761" y="495" width="77" height="27" rx="7"/>
+                </g>
+                <g class="bp-room-names" font-family="Arial,sans-serif" text-anchor="middle" fill="#a9e7f3" font-size="17" letter-spacing="1.2"><text x="205" y="342">COZINHA</text><text x="540" y="357">SALA</text><text x="804" y="343">QUARTO</text><text x="147" y="565" font-size="13">ESCRITÓRIO</text><text x="806" y="563" font-size="13">GARAGEM</text></g>
+                <g class="bp-dimensions" fill="none" stroke="#3e778d" stroke-width="1.4"><path d="M66 35H924M66 29v12M924 29v12M943 59v532M938 59h10M938 591h10"/></g>
+                <g font-family="monospace" font-size="12" fill="#508aa0"><text x="465" y="25">PLANTA ESQUEMÁTICA · NÃO É UMA MEDIÇÃO</text><text x="949" y="337" transform="rotate(90 949 337)">ÁREA ILUSTRATIVA</text></g>
+              </svg>
+              <button type="button" class="bp-pin" data-comodo="fumaca" style="--x:29%;--y:31%" aria-label="Selecionar cozinha"><span class="bp-pin-ring">♨</span><span class="bp-pin-label">COZINHA<small data-comodo-sub="fumaca">Sem alerta</small></span></button>
+              <button type="button" class="bp-pin" data-comodo="bebe" style="--x:80%;--y:25%" aria-label="Selecionar quarto"><span class="bp-pin-ring">☾</span><span class="bp-pin-label">QUARTO<small data-comodo-sub="bebe">Sem alerta</small></span></button>
+              <button type="button" class="bp-pin" data-comodo="custom" style="--x:51%;--y:43%" aria-label="Selecionar sala"><span class="bp-pin-ring">⌁</span><span class="bp-pin-label">SALA<small data-comodo-sub="custom">Sem alerta</small></span></button>
+              <button type="button" class="bp-pin" data-comodo="porta" style="--x:74%;--y:73%" aria-label="Selecionar entrada"><span class="bp-pin-ring">⌂</span><span class="bp-pin-label">ENTRADA<small data-comodo-sub="porta">Sem alerta</small></span></button>
+              <div class="bp-arduino-hub"><strong>Arduino / central</strong><small>Recebe os sinais e atualiza a interface</small></div><div class="bp-corner bp-corner-a"></div><div class="bp-corner bp-corner-b"></div>
+            </div>
+            <div class="blueprint-foot"><div><span class="bp-indicator normal"></span> Sem alerta <span class="bp-indicator event"></span> Evento recente <span class="bp-indicator danger"></span> Alerta ativo</div><span>Toque nos pontos para explorar</span></div>
+            <p class="nota mapa-nota"><strong>Como ler o mapa:</strong> os pontos mostram canais configurados, não a localização exata de um aparelho. “Habilitado” não significa “conectado”, e a ausência de alerta não garante que o ambiente esteja seguro.</p>
+          </section>
+          <aside class="cartao ambiente-detalhe blueprint-detail" aria-live="polite" aria-atomic="true"><div class="detail-head"><p class="eyebrow">CÔMODO SELECIONADO</p><span class="detail-cross">⌖</span></div><div id="mapa-detalhe"></div><div class="mapa-acoes"><button class="btn btn-escuro" id="mapa-testar" type="button">▶ Simular neste cômodo</button><a href="#dispositivos" id="mapa-ativar-link" class="btn btn-outline" hidden>Ativar sensor em Dispositivos →</a><a href="#prototipo" class="btn btn-outline">Entender na bancada Arduino ↗</a><a href="#como-funciona" class="btn btn-outline">Ver explicação completa ↗</a></div><div id="mapa-estado-ajuda" class="mapa-estado-ajuda" role="status"></div><div id="mapa-fluxo" class="detail-event detail-flow"></div></aside>
+        </div>
+      </section>
+      <section id="view-como-funciona" class="view" hidden>
+        <div class="intro-secao"><p class="eyebrow">DOCUMENTAÇÃO VISUAL</p><h2>Como o sistema funciona, passo a passo.</h2><p>Uma visão didática do projeto: sensores na casa, backend em Node.js, atualização do painel e resposta do Arduino.</p></div>
+        <div class="exp-grid">
+          <section class="cartao exp-hero">
+            <div class="exp-hero-copy"><p class="eyebrow">RESUMO DO FLUXO</p><h3>Da captação do som até o alerta visível.</h3><p id="exp-resumo">O sistema observa quatro canais de som. Quando um evento é recebido, o servidor registra a ocorrência, atualiza a interface em tempo real e, se houver hardware conectado, pode acionar luz e vibração.</p></div>
+            <div id="exp-etapas" class="exp-etapas"></div>
+          </section>
+          <section class="cartao exp-mini-mapa">
+            <div class="cabecalho-cartao"><div><p class="eyebrow">CASA MONITORADA</p><h3>Qual canal fica em cada ambiente</h3></div><a href="#mapa" class="link-suave">Abrir mapa completo →</a></div>
+            <div id="exp-ambientes" class="exp-ambientes"></div>
+          </section>
+        </div>
+        <div class="exp-grid lower">
+          <section class="cartao exp-fluxo">
+            <div class="cabecalho-cartao"><div><p class="eyebrow">SEQUÊNCIA DE UM ALERTA</p><h3>O que acontece quando um som é detectado</h3></div><span id="exp-pill" class="status-pill neutro">Em espera</span></div>
+            <ol id="exp-linha-tempo" class="exp-linha-tempo"></ol>
+          </section>
+          <section class="cartao exp-hard">
+            <div class="cabecalho-cartao"><div><p class="eyebrow">BANCADA E ARDUINO</p><h3>Como ler a simulação física</h3></div><a href="#prototipo" class="link-suave">Abrir protótipo ao vivo →</a></div>
+            <div id="exp-hard-list" class="exp-hard-list"></div>
+            <p class="nota">Sem placa conectada, o projeto continua funcional em modo demonstração. Quando o Arduino físico estiver ligado, a interface mostra a diferença entre simulação e hardware real.</p>
+          </section>
+        </div>
+        <div class="autoria-cartao"><div><p class="eyebrow">AUTORIA ACADÊMICA</p><strong>Equipe de desenvolvimento</strong><p>Vinicius Iandoli · Lais Toyama · Vinicius Centurion · Cesar Melo</p></div></div>
+      </section>
+      <section id="view-guia" class="view" hidden>
+        <div class="intro-secao"><p class="eyebrow">MODO APRESENTAÇÃO</p><h2>Uma demonstração, do começo ao fim.</h2><p>Cada etapa gera eventos claramente identificados como simulação. Você controla o ritmo e pode interromper quando quiser.</p></div>
+        <section class="cartao guia-painel"><div class="guia-barra"><div><p class="eyebrow">PERCURSO GUIADO</p><h2 id="guia-titulo">Conheça o Alerta Visual</h2></div><span class="status-pill demo" id="guia-etapa">1 de 5</span></div>
+          <div class="guia-progresso" aria-label="Progresso da demonstração" id="guia-progresso"><span></span></div>
+          <div class="guia-conteudo"><div class="guia-ilustracao" id="guia-ilustracao" aria-hidden="true">⌂</div><div><p class="eyebrow" id="guia-categoria">BOAS-VINDAS</p><h3 id="guia-descricao">Vamos ver o caminho de um sinal.</h3><p id="guia-explicacao">Primeiro, você verá o mapa. Depois, o sistema mostrará alertas simulados e suas informações no histórico.</p></div></div>
+          <div class="guia-botoes"><button type="button" class="btn btn-outline" id="guia-voltar">Voltar</button><button type="button" class="btn btn-escuro" id="guia-avancar">Começar apresentação →</button><button type="button" class="btn btn-outline" id="guia-reiniciar">Reiniciar</button></div>
+          <p class="nota">A apresentação não testa sensores físicos nem valida uma rota de fuga. Todos os seus eventos são identificados como simulação.</p>
+        </section>
+      </section>
       <section id="view-relatorios" class="view" hidden>
         <div class="rel-filtros"><div class="intro-secao"><p class="eyebrow">VISÃO HISTÓRICA</p><h2>Entenda os sinais da sua casa.</h2><p>Somente dados registrados pelo sistema — sem números inventados.</p></div><div class="filtros-direita"><label for="periodo-rel">Período analisado</label><select id="periodo-rel"><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="hoje">Hoje</option><option value="todos">Todo o histórico</option></select></div></div>
         <div id="stats-relatorio" class="grade-stats"></div>
         <div class="grade-relatorio"><section class="cartao grafico-cartao" aria-labelledby="h-grafico"><div class="cabecalho-cartao"><div><p class="eyebrow">VOLUME DE OCORRÊNCIAS</p><h2 id="h-grafico">Eventos por horário</h2></div><span class="nota">Blocos de 3 horas</span></div><ul class="grafico" id="grafico" aria-label="Gráfico de eventos por período"></ul><ul class="legenda" aria-hidden="true"><li><i class="q t-campainha"></i>Campainha</li><li><i class="q t-bebe"></i>Quarto</li><li><i class="q t-fumaca"></i>Alarme</li><li><i class="q t-custom"></i>Outros</li></ul></section><section class="cartao distribuicao-cartao"><p class="eyebrow">CATEGORIAS</p><h2>Tipos de evento</h2><div id="total-por-tipo"></div></section></div>
-        <section class="cartao tabela-relatorios" aria-labelledby="h-hist-rel"><div class="cabecalho-cartao"><div><p class="eyebrow">REGISTROS</p><h2 id="h-hist-rel">Histórico detalhado</h2></div><div class="filtros-tabela"><label class="sr-only" for="tipo-rel">Filtrar tipo de evento</label><select id="tipo-rel"><option value="todos">Todos os eventos</option><option value="campainha">Campainha</option><option value="bebe">Bebê</option><option value="fumaca">Alarme de fumaça</option><option value="custom">Personalizado</option></select><button type="button" class="btn btn-outline btn-sm" id="btn-exportar">↓ Exportar CSV</button></div></div><div class="rolagem"><table><thead><tr><th scope="col">DATA / HORA</th><th scope="col">EVENTO</th><th scope="col">ORIGEM</th><th scope="col">AMPLITUDE*</th><th scope="col">DURAÇÃO</th><th scope="col">STATUS</th></tr></thead><tbody id="tbody-rel"></tbody></table></div><p class="nota nota-rodape">* Valor estimado a partir da leitura analógica, não é uma medição acústica calibrada em dB SPL.</p></section>
+        <section class="cartao tabela-relatorios" aria-labelledby="h-hist-rel"><div class="cabecalho-cartao"><div><p class="eyebrow">REGISTROS</p><h2 id="h-hist-rel">Histórico detalhado</h2></div><div class="filtros-tabela"><label class="sr-only" for="tipo-rel">Filtrar tipo de evento</label><select id="tipo-rel"><option value="todos">Todos os eventos</option><option value="campainha">Campainha</option><option value="bebe">Bebê</option><option value="fumaca">Alarme de fumaça</option><option value="custom">Personalizado</option></select><button type="button" class="btn btn-outline btn-sm" id="btn-exportar">↓ Exportar CSV</button></div></div><div class="rolagem"><table><thead><tr><th scope="col">DATA / HORA</th><th scope="col">EVENTO</th><th scope="col">ORIGEM</th><th scope="col">ÍNDICE*</th><th scope="col">DURAÇÃO</th><th scope="col">STATUS</th></tr></thead><tbody id="tbody-rel"></tbody></table></div><p class="nota nota-rodape">* Índice visual estimado a partir da amplitude sonora. Não equivale a uma medição calibrada em decibéis.</p></section>
       </section>
     </main>
   </div>

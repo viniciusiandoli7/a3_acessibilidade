@@ -1,0 +1,33 @@
+{
+  "exibicao": true,
+  "dispositivos": {
+    "porta": {
+      "id": "porta",
+      "tipo": "campainha",
+      "ativo": true,
+      "sensibilidade": 60,
+      "cor": "laranja"
+    },
+    "bebe": {
+      "id": "bebe",
+      "tipo": "bebe",
+      "ativo": true,
+      "sensibilidade": 60,
+      "cor": "azul"
+    },
+    "fumaca": {
+      "id": "fumaca",
+      "tipo": "fumaca",
+      "ativo": true,
+      "sensibilidade": 60,
+      "cor": "vermelho"
+    },
+    "custom": {
+      "id": "custom",
+      "tipo": "custom",
+      "ativo": false,
+      "sensibilidade": 60,
+      "cor": "azul"
+    }
+  }
+}

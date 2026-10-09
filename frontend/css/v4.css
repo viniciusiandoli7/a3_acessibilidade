@@ -1,0 +1,128 @@
+/* Alerta Visual 4.0 — Planta arquitetônica & bancada digital.
+   Mantém os tokens do painel principal e usa apenas CSS/SVG local. */
+:root { --cyan:#65cde8; --cyan-dim:#31566c; --sim-font:'Segoe UI', Inter, Arial, sans-serif }
+body { background: radial-gradient(ellipse at 58% -25%,#153352 0,transparent 56%),#081427 }
+.marca-simbolo {color:#65a5ff}
+.menu a {transition:background-color .16s ease,color .16s ease,border-color .16s ease}
+.view {animation:screenIn .26s ease-out both}
+@keyframes screenIn {from{opacity:.4;transform:translateY(7px)} to{opacity:1;transform:translateY(0)}}
+.cartao {box-shadow:0 9px 26px rgba(0,6,20,.13)}
+.mapa-intro,.lab-intro{display:flex;justify-content:space-between;align-items:center;gap:22px}
+.mapa-intro .intro-secao,.lab-intro .intro-secao{margin:0}
+/* ===== Planta digital ===== */
+.blueprint-layout{grid-template-columns:minmax(0,1.72fr) minmax(295px,.58fr);gap:16px;align-items:start}
+.blueprint-card{padding:0;overflow:hidden;background:#0b1b2d;border:1px solid #284660;border-radius:18px}
+.blueprint-topbar{height:47px;padding:0 22px;display:flex;align-items:center;justify-content:space-between;background:#101f33;color:#86bdd1;border-bottom:1px solid #2a5268;letter-spacing:.11em;font-size:10px;font-weight:750}
+.blueprint-topbar>span{display:flex;gap:10px;align-items:center}.blueprint-topbar b{color:#38657b}
+.bp-led{height:7px;width:7px;border-radius:50%;background:#50ceaa;box-shadow:0 0 0 4px #50ceaa20}
+.blueprint-frame{aspect-ratio:1000 / 650;position:relative;overflow:hidden;min-height:0;border:15px solid #071728;border-bottom:9px solid #071728;background:radial-gradient(ellipse at 50% 35%,#12304a,#061725 80%)}
+.blueprint-grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#3b8aaf0b 1px,transparent 1px),linear-gradient(90deg,#3b8aaf0b 1px,transparent 1px);background-size:23px 23px}
+.blueprint-svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 3px #219bbb50)}
+.bp-walls{filter:drop-shadow(0 0 3px #4bcbeb30)}
+.bp-pin{position:absolute;left:var(--x);top:var(--y);display:flex;align-items:center;gap:7px;transform:translate(-50%,-50%);border:0;border-radius:99px;padding:0;background:transparent;color:#b5f5ff;font:750 11px var(--sim-font);z-index:2;text-align:left;white-space:nowrap;transition:filter .2s}
+.bp-pin:focus-visible{outline:2px solid #fff;outline-offset:7px}.bp-pin:hover{filter:brightness(1.35)}
+.bp-pin-ring{width:49px;height:49px;border:2px solid #64c6e4;border-radius:50%;display:grid;place-items:center;font:600 25px var(--sim-font);background:#0b374fbd;color:#abedff;box-shadow:0 0 0 6px #50bfe01c,0 0 22px #4dc5ed18;flex:none}
+.bp-pin-label{display:flex;flex-direction:column;gap:3px;background:#071726cd;padding:6px 7px;border-radius:5px;letter-spacing:.12em;text-shadow:0 1px 5px #000;color:#c4f4ff}
+.bp-pin-label small{font:600 9px var(--sim-font);color:#70bed4;letter-spacing:.03em}
+.bp-pin[aria-pressed="true"] .bp-pin-ring{background:#154d6a;box-shadow:0 0 0 6px #56b9dd2c,0 0 22px #71d8ff45;border-color:#c3f4ff}
+.bp-pin.sinal-recente .bp-pin-ring{color:#ffce78;background:#493821bb;border-color:#f4b15b;box-shadow:0 0 0 6px #f4ae4e1a}
+.bp-pin.sinal-recente .bp-pin-label small{color:#ffce78}
+.bp-pin.sinal-ativo .bp-pin-ring{color:#ff9ba3;background:#571e30;border-color:#ff5d74;box-shadow:0 0 0 8px #ff4b6323,0 0 18px #fa365354;animation:pinPulse 2s ease-in-out infinite}
+.bp-pin.sinal-ativo .bp-pin-label small{color:#ff6b7a}
+.bp-pin.desativado{opacity:.49}
+@keyframes pinPulse {50%{box-shadow:0 0 0 15px #ff4b630b,0 0 18px #fa365354}}
+.bp-corner{position:absolute;width:24px;height:24px;border-color:#6ceaff;pointer-events:none}
+.bp-corner-a{left:5px;top:5px;border-left:2px solid;border-top:2px solid}.bp-corner-b{right:5px;bottom:5px;border-right:2px solid;border-bottom:2px solid}
+.blueprint-foot{display:flex;justify-content:space-between;gap:14px;padding:16px 21px;background:#0e2438;border-top:1px solid #2c5468;color:#acc2d1;font-size:11px}
+.blueprint-foot>div{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px}.blueprint-foot>span{white-space:nowrap;color:#7bacc0}
+.bp-indicator{width:8px;height:8px;border-radius:50%;display:inline-block;background:#67c5df}.bp-indicator.event{background:#ffbb57}.bp-indicator.danger{background:#ff5265}
+.blueprint-card .mapa-nota{margin:0;padding:0 21px 18px;background:#0e2438;max-width:none;font-size:11px}
+.blueprint-detail{min-height:0;gap:16px;padding:24px;background:linear-gradient(163deg,#162e48,#0d2035)}
+.detail-head{display:flex;justify-content:space-between;align-items:center}.detail-cross{color:#65a8c5;font-size:24px}
+.blueprint-detail .ambiente-simbolo{margin-bottom:16px;width:64px;height:64px;background:linear-gradient(145deg,#1b5570,#153046);color:#83dfff;border-color:#497d96}
+.blueprint-detail #mapa-detalhe h2{font-size:30px;margin:7px 0 3px}
+.blueprint-detail .ambiente-linhas{margin:25px 0 0}
+.blueprint-detail .ambiente-linhas>div{padding:12px 0;border-bottom:1px solid #29465e;gap:15px}
+.blueprint-detail .ambiente-linhas strong{max-width:61%;text-align:right}
+.detail-status{display:inline-flex;align-items:center;background:#11453580;border:1px solid #1b6857;color:#64e8be;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:750}
+.detail-status.danger{background:#521d2d80;border-color:#9e364c;color:#ff8293}.detail-status.off{background:#34394770;border-color:#58677e;color:#bec9d6}
+.detail-event{border-radius:12px;margin-top:20px;border:1px solid #31516d;background:#0d233c;padding:14px;display:flex;flex-direction:column;gap:6px}
+.detail-event span{color:#6e9cb5;font-size:10px;letter-spacing:.12em;font-weight:700}
+.detail-event strong{font-size:13px}.detail-event small{font-size:11px;color:#9fb1c5}
+.blueprint-detail .mapa-acoes{display:grid;gap:10px;margin-top:10px}
+.blueprint-detail .mapa-acoes .btn{width:100%}
+/* ===== Bancada Arduino ===== */
+.lab-intro{margin-bottom:22px}
+.simulator-shell{padding:0;border:1px solid #314457;background:#0b1727;border-radius:17px;overflow:hidden;box-shadow:0 23px 55px #0005}
+.sim-toolbar{min-height:62px;padding:13px 16px 13px 22px;background:#0d1a2a;border-bottom:1px solid #2a3a4d;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.sim-breadcrumb,.sim-toolbar-end{display:flex;align-items:center;gap:12px;min-width:0}.sim-breadcrumb{color:#98abc2;font-size:11px;letter-spacing:.06em;font-weight:750;white-space:nowrap}.sim-breadcrumb strong{color:#f2f8ff;font-size:12px;letter-spacing:0}.sim-orb{width:11px;height:11px;display:block;background:#39d5a0;box-shadow:0 0 0 5px #39d5a01c;border-radius:50%}.sim-slash{color:#54728b}.sim-toolbar-end .btn{white-space:nowrap}.sim-link{font-size:11px;color:#e9b876;white-space:nowrap}.sim-link.is-online{color:#51d7aa}
+.sim-workspace{display:grid;grid-template-columns:202px minmax(0,1fr) 226px;min-height:560px}
+.sim-library,.sim-inspector{background:#101f30;padding:20px 14px;border-right:1px solid #2b4056;min-width:0}
+.sim-inspector{border-right:0;border-left:1px solid #2b4056;display:flex;flex-direction:column;gap:16px}
+.sim-panel-head{margin-bottom:18px}.sim-panel-head h3{font-size:17px;letter-spacing:-.035em;margin:8px 0 3px}.sim-panel-head small{font-size:11px;color:#90a6bb}
+.sim-components{display:flex;flex-direction:column;gap:10px}
+.sim-component{width:100%;display:flex;gap:10px;align-items:center;text-align:left;position:relative;background:#152a3f;border:1px solid #344d65;color:#e5f1ff;padding:13px 9px;border-radius:11px;min-height:71px;transition:transform .17s ease,border-color .17s,background-color .17s}
+.sim-component:hover{transform:translateX(3px);border-color:#6aa4e5;background:#1c3853}
+.sim-component.is-triggered{border-color:#ff9c61;background:#422b2f}
+.sim-component-icon{display:grid;place-items:center;width:35px;height:36px;border-radius:9px;background:#143d5b;color:#78bfff;flex:none}
+.sim-component-icon svg{width:22px;height:22px}
+.sim-component:nth-child(2) .sim-component-icon{color:#c89cff;background:#302447}
+.sim-component:nth-child(3) .sim-component-icon{color:#ff818d;background:#422437}
+.sim-component:nth-child(4) .sim-component-icon{color:#ffc46c;background:#423824}
+.sim-component strong,.sim-component small{display:block}.sim-component strong{font-size:11px}.sim-component small{margin-top:3px;color:#8fa9c0;font-size:10px}.component-arrow{margin-left:auto;color:#779ab6}
+.sim-library-help{border:1px solid #34475b;background:#10253a;border-radius:12px;padding:12px 10px;margin-top:20px;display:flex;align-items:flex-start;gap:8px;color:#92aac0;font-size:10px}
+.sim-help-icon{width:18px;height:18px;border:1px solid #587c97;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:700;color:#a3cae2}
+.sim-stage{position:relative;min-height:500px;overflow:hidden;background:radial-gradient(ellipse at 54% 40%,#183044 0,#0b1726 75%)}
+.sim-grid{position:absolute;inset:0;background-image:radial-gradient(#42627d55 1px,transparent 1px);background-size:19px 19px;opacity:.48;pointer-events:none}
+.sim-stage-header{position:absolute;z-index:2;top:14px;left:19px;right:19px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:#7f9ab3;font-weight:700;letter-spacing:.075em;font-size:10px}
+.sim-status-led{display:inline-flex;align-items:center;gap:7px;letter-spacing:0;font-size:11px;color:#becbd9}.sim-status-led i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#70889e}.sim-status-led i.has-event{background:#ffac56;box-shadow:0 0 0 4px #ffac5622}
+.circuito-svg{position:absolute;left:0;right:0;top:50%;transform:translateY(-49%);width:100%;height:auto;max-height:95%;overflow:visible;pointer-events:none}
+.circuito-svg .wire.red-wire{stroke:#e75f58}.circuito-svg .wire.blue-wire{stroke:#5aa7f7}.circuito-svg .wire.orange-wire{stroke:#f6a75c}.circuito-svg .wire.green-wire{stroke:#56c49a}.circuito-svg .wire.ground-wire{stroke:#222d3b;stroke-width:6}
+.circuito-svg .sim-floating-labels{fill:#aabfd0;font-size:13px;letter-spacing:1px;font-weight:700}
+.circuito-svg.circuit-live #sim-led{filter:url(#led-glow)}
+.circuito-svg.circuit-live #sim-pulse-ring{animation:circuitPulse 2.2s ease-in-out infinite;transform-origin:589px 235px}
+.circuito-svg.motor-live #sim-motor{animation:motorRotate .35s linear infinite;transform-origin:933px 286px}
+@keyframes circuitPulse{50%{opacity:.25;transform:scale(1.65)}}@keyframes motorRotate{100%{transform:rotate(360deg)}}
+.sim-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 23px;position:absolute;left:12px;right:12px;bottom:20px;color:#a0b5c8;font-size:10px}.sim-legend span{display:flex;align-items:center;gap:7px}.sim-legend i{display:block;height:3px;width:20px;border-radius:3px;background:#5aa7f7}.sim-legend .leg-vermelho{background:#f65d64}.sim-legend .leg-verde{background:#56c49a}
+.sim-inspector-item{border-bottom:1px solid #29425a;padding:1px 0 13px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sim-inspector-item span{font-size:11px;color:#819eb6}.sim-inspector-item strong{font-size:12px;text-align:right;max-width:130px;overflow-wrap:anywhere}
+.sim-monitor{border-radius:10px;background:#091624;border:1px solid #2b4158;overflow:hidden}
+.sim-monitor-title{display:flex;align-items:center;gap:9px;padding:10px;border-bottom:1px solid #20374c;color:#a9c0d4;font-weight:700;font-size:11px}
+.sim-terminal{color:#50d5ba;font-family:monospace;font-size:16px}
+.sim-monitor-lines{padding:11px 9px;min-height:145px;max-height:200px;overflow:auto;color:#9db7c7;font-family:Consolas,monospace;font-size:10px;line-height:1.7}
+.sim-monitor-lines p{margin-bottom:7px;overflow-wrap:anywhere}.sim-monitor-lines time{color:#5f839b}.sim-monitor-lines .monitor-ok{color:#6fddbf}.sim-monitor-lines .monitor-danger{color:#ff889b}.sim-monitor-lines .monitor-error{color:#ff9b94}
+.sim-inspector-footer{margin-top:auto;display:flex;flex-direction:column;gap:12px}.sim-inspector-footer .nota{font-size:10px;line-height:1.5}
+.sim-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:42px;padding:10px 18px;background:#111d2e;border-top:1px solid #2a3a4f;color:#8ca5bc;font-size:10px}
+.sim-footer>div{display:flex;align-items:center;gap:8px}.sim-foot-indicator{width:8px;height:8px;border-radius:50%;background:#48d6a4;box-shadow:0 0 0 4px #48d6a420}
+@media(max-width:1500px){.sim-workspace{grid-template-columns:185px minmax(0,1fr) 202px}.sim-library,.sim-inspector{padding:17px 11px}.blueprint-layout{grid-template-columns:minmax(0,1fr) 290px}}
+@media(max-width:1180px){.sim-workspace{grid-template-columns:180px minmax(0,1fr)}.sim-inspector{grid-column:1/-1;border-left:0;border-top:1px solid #2b4056;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.sim-inspector .sim-panel-head,.sim-monitor,.sim-inspector-footer{grid-column:1/-1}.sim-inspector .sim-panel-head{margin-bottom:0}.blueprint-layout{grid-template-columns:minmax(0,1fr)}.blueprint-detail{display:block;min-height:0}.blueprint-detail .mapa-acoes{grid-template-columns:1fr 1fr;margin-top:16px}.blueprint-detail .ambiente-linhas{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.blueprint-detail #mapa-detalhe h2{margin-top:10px}}
+@media(max-width:850px){.sim-toolbar{flex-wrap:wrap}.sim-toolbar-end{width:100%;justify-content:flex-end}.sim-workspace{grid-template-columns:1fr}.sim-library{border-right:0;border-bottom:1px solid #2b4056}.sim-components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.sim-library-help{margin-top:12px}.sim-stage{min-height:460px}.sim-inspector{grid-column:1}.sim-stage-header{font-size:9px}.mapa-intro,.lab-intro{align-items:flex-start;flex-direction:column}.blueprint-foot{flex-wrap:wrap}}
+@media(max-width:600px){.blueprint-frame{border-width:5px}.bp-pin-ring{width:33px;height:33px;font-size:17px}.bp-pin-label{font-size:8px;padding:4px}.bp-pin-label small{font-size:7px}.blueprint-topbar{padding:0 11px;gap:8px;font-size:8px}.blueprint-topbar>span:last-child{display:none}.blueprint-foot{padding:12px;font-size:10px}.blueprint-card .mapa-nota{padding:0 12px 14px}.blueprint-detail .mapa-acoes,.blueprint-detail .ambiente-linhas{grid-template-columns:1fr}.sim-breadcrumb{font-size:9px}.sim-toolbar-end{justify-content:stretch;flex-wrap:wrap}.sim-link{flex:1}.sim-stage{min-height:295px}.sim-stage-header span:first-child{max-width:60%}.sim-legend{bottom:9px;gap:8px;font-size:9px}.sim-legend i{width:11px}.sim-components{grid-template-columns:1fr 1fr;gap:6px}.sim-component{min-height:67px;padding:7px}.sim-component-icon{width:27px;height:27px}.sim-component-icon svg{width:17px;height:17px}.sim-component strong{font-size:10px}.sim-component small{font-size:9px}.sim-inspector{grid-template-columns:1fr 1fr}.sim-footer{flex-wrap:wrap}}
+@media(max-width:400px){.bp-pin-label{display:none}.blueprint-frame{min-height:240px;aspect-ratio:1.2}.blueprint-svg{width:100%;height:100%}.sim-stage{min-height:245px}.sim-status-led span{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.view,.bp-pin,.sim-component,#sim-pulse-ring,#sim-motor{animation:none!important;transition:none!important}}
+
+
+/* ===== Documentação / Como funciona ===== */
+.exp-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.7fr);gap:16px;align-items:start;margin-bottom:16px}
+.exp-grid.lower{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.exp-hero{padding:24px 26px;display:grid;gap:18px;background:linear-gradient(160deg,#142b45,#0d2035)}
+.exp-hero h3{font-size:28px;letter-spacing:-.04em;margin:8px 0 8px}.exp-hero p{max-width:72ch}
+.exp-etapas,.flow-steps{display:grid;gap:12px}
+.exp-step,.flow-step{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;padding:14px 15px;border:1px solid #2f4c66;background:#10233a;border-radius:14px;transition:.18s ease}
+.exp-step span,.flow-step span,.exp-linha-tempo li>span{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:#183652;color:#8fd6ff;font-weight:800;box-shadow:inset 0 0 0 1px #2f6588}
+.exp-step strong,.flow-step strong{display:block;font-size:14px}.exp-step small,.flow-step small{display:block;margin-top:4px;color:#9cb0c0;font-size:12px;line-height:1.5}
+.exp-step.active,.flow-step.active{border-color:#4b7ba2;background:#132b44}.flow-step.current{box-shadow:0 0 0 1px #6ec7ff44,0 12px 25px #07111d66}
+.flow-shell{margin-bottom:18px;padding:22px 24px;background:linear-gradient(155deg,#0f2740,#0d2034)}
+.flow-steps{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}.flow-step{min-height:112px}.flow-arrow{display:grid;place-items:center;color:#5b7f9e;font-weight:900;font-size:22px}
+.exp-mini-mapa,.exp-fluxo,.exp-hard{padding:22px 24px}.exp-ambientes{display:grid;grid-template-columns:1fr 1fr;gap:12px}.exp-room{padding:15px 16px;border-radius:14px;border:1px solid #30506b;background:#102338;display:grid;gap:6px}.exp-room strong{font-size:14px}.exp-room small{font-size:12px;color:#9eb0c0}.exp-room span{font-size:11px;color:#79c4ff;font-weight:700;letter-spacing:.08em}.exp-room.hot{border-color:#ff6577;background:#381c2b}.exp-room.off{opacity:.7}
+.exp-linha-tempo{display:grid;gap:12px;list-style:none;padding:0;margin:2px 0 0}.exp-linha-tempo li{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;padding:14px 0;border-bottom:1px solid #284660}.exp-linha-tempo li:last-child{border-bottom:0}.exp-linha-tempo li p{margin:4px 0 0;color:#9eb0c0;font-size:13px;line-height:1.55}.exp-linha-tempo li.active strong{color:#fff}
+.exp-hard-list{display:grid;gap:12px}.exp-hard-row{padding:12px 0;border-bottom:1px solid #28465e;display:grid;gap:4px}.exp-hard-row:last-child{border-bottom:0}.exp-hard-row small{color:#9fb3c3}
+/* ===== Mapa refinado ===== */
+.blueprint-card{box-shadow:0 24px 50px #00000040}.blueprint-frame{transform-style:preserve-3d;perspective:1200px}.blueprint-svg{transform:rotateX(3deg);transform-origin:center center}.bp-arduino-hub{position:absolute;left:39%;bottom:9.5%;min-width:170px;padding:11px 14px;border-radius:16px;background:linear-gradient(160deg,#0f2940,#102033);border:1px solid #3b6b86;color:#d9f4ff;box-shadow:0 18px 35px #0006, inset 0 0 0 1px #55a8d327}.bp-arduino-hub strong{display:block;font-size:13px}.bp-arduino-hub small{display:block;margin-top:4px;font-size:10px;color:#96c2d7;line-height:1.35}
+.detail-flow{margin-top:12px;background:#0d243b;border-color:#31506b}.detail-flow strong{font-size:12px;line-height:1.5}
+/* ===== Bancada / leitura explicativa ===== */
+.simulator-shell{margin-top:16px}.sim-workspace{min-height:600px}.sim-stage{box-shadow:inset 0 0 0 1px #173452}.sim-stage::after{content:'';position:absolute;inset:18px;border:1px dashed #3a566f55;border-radius:22px;pointer-events:none}.sim-status-led i.has-event{background:#ffac56;box-shadow:0 0 0 4px #ffac5622,0 0 24px #ffac5666}.sim-footer{font-size:11px}
+@media(max-width:1180px){.exp-grid,.exp-grid.lower{grid-template-columns:1fr}.flow-steps{grid-template-columns:1fr 1fr}.flow-arrow{display:none}}
+@media(max-width:850px){.exp-ambientes{grid-template-columns:1fr 1fr}.flow-steps{grid-template-columns:1fr}.bp-arduino-hub{left:18px;right:18px;bottom:14px;min-width:0}}
+@media(max-width:600px){.exp-hero,.exp-mini-mapa,.exp-fluxo,.exp-hard,.flow-shell{padding:18px}.exp-hero h3{font-size:24px}.exp-ambientes{grid-template-columns:1fr}.bp-arduino-hub{padding:10px 12px}.blueprint-svg{transform:none}.flow-step{min-height:0}}
+@media(max-width:400px){.exp-step,.flow-step,.exp-linha-tempo li{grid-template-columns:34px minmax(0,1fr)}.exp-step span,.flow-step span,.exp-linha-tempo li>span{width:34px;height:34px;border-radius:10px;font-size:12px}}

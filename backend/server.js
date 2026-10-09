@@ -11,6 +11,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,7 @@ const BAUD = 9600;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'eventos.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const HOST = process.env.HOST || '127.0.0.1';
 const COOLDOWN_MS = 3000;          // evita registrar o mesmo toque várias vezes
 const DURACAO_ALERTA_MS = 15000;   // alertas comuns terminam sozinhos
 const DURACAO_CRITICO_MS = 600000; // expira após 10 minutos ou ao silenciar
@@ -51,6 +53,9 @@ const estado = {
   }
 };
 const ultimoPorDispositivo = {};
+let leituras = {};
+let instanteLeituras = null;
+let ultimoStatus = null;
 let eventos = [];
 let alerta = null;       // alerta em andamento
 let timerAlerta = null;
@@ -67,7 +72,13 @@ let simSocket = null;
 function carregarEventos() {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (fs.existsSync(DATA_FILE)) eventos = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    if (fs.existsSync(DATA_FILE)) {
+      const lidos = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+      if (!Array.isArray(lidos)) throw new Error('Histórico não é uma lista');
+      eventos = lidos.filter(e => e && typeof e.id === 'string' && Object.hasOwn(TIPOS,e.tipo) &&
+        typeof e.hora === 'string' && Number.isFinite(Date.parse(e.hora)))
+        .slice(-MAX_EVENTOS).map(e=>e.status==='pendente' ? {...e,status:'interrompido'} : e);
+    }
   } catch (e) {
     console.warn('Não foi possível ler o histórico:', e.message);
     eventos = [];
@@ -117,6 +128,31 @@ function transmitir(mensagem) {
 wss.on('connection', (ws) => ws.send(JSON.stringify({ tipo: 'estado' })));
 
 /* ---------- Arduino ---------- */
+function limparTelemetria() {
+  leituras = {}; instanteLeituras = null; ultimoStatus = null;
+  hardware.ledAtivo = false; hardware.motorAtivo = false;
+}
+function estadoDiagnostico() {
+  const agora = Date.now();
+  const ligado = hardware.conectado && hardware.modo !== 'simulado';
+  const idadeStatus = ultimoStatus ? agora-new Date(ultimoStatus).getTime() : null;
+  const idadeLeituras = instanteLeituras ? agora-new Date(instanteLeituras).getTime() : null;
+  return {
+    modo: hardware.modo, conectado: ligado, firmware: hardware.firmware,
+    status: { horario: ultimoStatus, idadeMs:idadeStatus, recente: ligado && idadeStatus !== null && idadeStatus < 5000 },
+    entradas: Object.values(estado.dispositivos).map(d => {
+      const dado = leituras[d.id];
+      const ultimo = eventos.slice().reverse().find(e=>e.dispositivo===d.id);
+      return {id:d.id,ativo:d.ativo,ultimoEvento:ultimo?.hora || null,
+        amplitude: ligado && idadeLeituras !== null && idadeLeituras < 6000 && Number.isInteger(dado) ? dado : null,
+        ultimaLeitura: instanteLeituras,estado:!d.ativo?'desativado':!ligado?'sem_conexao':idadeLeituras===null?'aguardando':idadeLeituras>=6000?'desatualizado':'informando'};
+    }),
+    saidas: {led: ligado && idadeStatus !== null && idadeStatus < 5000 ? hardware.ledAtivo : null,
+      motor: ligado && idadeStatus !== null && idadeStatus < 5000 ? hardware.motorAtivo : null},
+    aviso:'Telemetria é uma declaração do firmware, não prova elétrica ou de segurança.'
+  };
+}
+
 function limiarDeSensibilidade(pct) {
   // 0% = quase surdo (limiar alto) | 100% = muito sensível (limiar baixo)
   return Math.round(600 - (Math.max(0, Math.min(100, pct)) * 5.6));
@@ -165,6 +201,7 @@ function iniciarSerial() {
     });
     serial.on('close', () => {
       hardware.conectado = false;
+      limparTelemetria();
       transmitir({ tipo: 'estado' });
       setTimeout(abrir, 5000);
     });
@@ -180,6 +217,7 @@ function iniciarPonteWokwi() {
     simSocket = socket;
     hardware.conectado = true;
     hardware.ultimaMensagem = null;
+    limparTelemetria();
     hardware.ledAtivo = false;
     hardware.motorAtivo = false;
     transmitir({ tipo: 'estado' });
@@ -201,6 +239,7 @@ function iniciarPonteWokwi() {
       simSocket = null;
       hardware.conectado = false;
       hardware.ultimaMensagem = null;
+      limparTelemetria();
       hardware.ledAtivo = false;
       hardware.motorAtivo = false;
       transmitir({ tipo: 'estado' });
@@ -222,10 +261,19 @@ function tratarLinhaSerial(linha) {
     transmitir({ tipo: 'hardware', hardware });
     sincronizarHardware();
   } else if (partes[0] === 'STATUS' && partes.length >= 4) {
+    ultimoStatus = new Date().toISOString();
     hardware.ultimaMensagem = new Date().toISOString();
     hardware.ledAtivo = partes[2] === '1';
     hardware.motorAtivo = partes[3] === '1';
     transmitir({ tipo: 'hardware', hardware });
+  } else if (partes[0] === 'READINGS' && partes.length === 5) {
+    const numeros = partes.slice(1).map(Number);
+    if (numeros.every(v=>Number.isInteger(v) && v>=-1 && v<=1023)) {
+      leituras = Object.fromEntries(Object.keys(CANAIS).map((k,i)=>[k,numeros[i]===-1?null:numeros[i]]));
+      instanteLeituras = new Date().toISOString();
+      hardware.ultimaMensagem = instanteLeituras;
+      transmitir({tipo:'telemetria',diagnostico:estadoDiagnostico()});
+    }
   } else if (partes[0] === 'EVT') {
     const canal = parseInt(partes[1], 10);
     const pico = parseInt(partes[2], 10) || 0;
@@ -249,7 +297,7 @@ function processarDeteccao(dispositivoId, pico, forcar) {
 
   const tipo = TIPOS[d.tipo];
   const evento = {
-    id: String(agora),
+    id: crypto.randomUUID(),
     tipo: d.tipo,
     dispositivo: d.id,
     rotulo: tipo.rotulo,
@@ -266,11 +314,22 @@ function processarDeteccao(dispositivoId, pico, forcar) {
   if (eventos.length > MAX_EVENTOS) eventos.shift();
   salvarEventos();
 
+  // Um teste do navegador nunca deve interromper um alerta vindo do Arduino.
+  // Ainda assim ele fica registrado no histórico como evento de demonstração.
+  if (forcar && alerta && alerta.fonte !== 'simulacao') {
+    evento.acao = 'Teste registrado (alerta físico em andamento)';
+    evento.status = 'encerrado';
+    evento.duracao = 0;
+    salvarEventos();
+    transmitir({ tipo: 'evento', evento, alertar: false });
+    return evento;
+  }
   const alertaCritico = alerta && TIPOS[alerta.tipo].critico;
   if (alertaCritico && !tipo.critico) {
     evento.acao = 'Registrado (alerta crítico em andamento)';
     evento.status = 'encerrado';
     evento.duracao = 0;
+    salvarEventos();
     transmitir({ tipo: 'evento', evento, alertar: false });
     return evento;
   }
@@ -296,7 +355,8 @@ function iniciarAlerta(evento) {
     inicio: Date.now()
   };
   const duracaoMs = t.critico ? DURACAO_CRITICO_MS : DURACAO_ALERTA_MS;
-  if (estado.exibicao) {
+  // Eventos criados no painel nunca acionam o hardware físico: evite efeitos não intencionais.
+  if (estado.exibicao && evento.fonte !== 'simulacao') {
     const [r, g, b] = CORES_RGB[evento.cor] || CORES_RGB.azul;
     enviarHardware(`ALERTA,${r},${g},${b},${t.padrao},${Math.round(duracaoMs / 1000)}`);
   }
@@ -312,9 +372,10 @@ function encerrarAlerta(motivo, silencioso) {
     evento.duracao = Math.max(1, Math.round((Date.now() - alerta.inicio) / 1000));
     evento.status = motivo === 'silenciado' ? 'atendido' : 'encerrado';
   }
+  const deveriaPararHardware = alerta.fonte !== 'simulacao';
   alerta = null;
   clearTimeout(timerAlerta);
-  enviarHardware('PARAR');
+  if (deveriaPararHardware) enviarHardware('PARAR');
   salvarEventos();
   if (!silencioso) transmitir({ tipo: 'alerta_fim', motivo });
 }
@@ -355,7 +416,7 @@ function estatisticas() {
 }
 
 /* ---------- API REST ---------- */
-app.use(express.json());
+app.use(express.json({ limit:'32kb' }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 app.get('/api/estado', (req, res) => {
@@ -366,9 +427,12 @@ app.put('/api/dispositivos/:id', (req, res) => {
   const d = estado.dispositivos[req.params.id];
   if (!d) return res.status(404).json({ erro: 'Dispositivo não encontrado' });
   const { ativo, sensibilidade, cor } = req.body || {};
+  if (ativo !== undefined && typeof ativo !== 'boolean') return res.status(400).json({ erro: 'Campo ativo deve ser booleano' });
+  if (sensibilidade !== undefined && (!Number.isFinite(sensibilidade) || sensibilidade < 0 || sensibilidade > 100)) return res.status(400).json({ erro: 'Sensibilidade deve estar entre 0 e 100' });
+  if (cor !== undefined && !Object.hasOwn(CORES_RGB, cor)) return res.status(400).json({ erro: 'Cor inválida' });
   if (typeof ativo === 'boolean') d.ativo = ativo;
-  if (Number.isFinite(sensibilidade)) d.sensibilidade = Math.max(0, Math.min(100, Math.round(sensibilidade)));
-  if (CORES_RGB[cor]) d.cor = cor;
+  if (sensibilidade !== undefined) d.sensibilidade = Math.round(sensibilidade);
+  if (cor !== undefined) d.cor = cor;
   const canal = CANAIS[d.id];
   enviarHardware(`CFG,${canal},${limiarDeSensibilidade(d.sensibilidade)}`);
   enviarHardware(`ATIVO,${canal},${d.ativo ? 1 : 0}`);
@@ -378,7 +442,8 @@ app.put('/api/dispositivos/:id', (req, res) => {
 });
 
 app.put('/api/exibicao', (req, res) => {
-  estado.exibicao = !!(req.body && req.body.ativo);
+  if (typeof req.body?.ativo !== 'boolean') return res.status(400).json({erro:'Informe ativo como booleano'});
+  estado.exibicao = req.body.ativo;
   if (!estado.exibicao) enviarHardware('PARAR');
   salvarConfig();
   transmitir({ tipo: 'estado' });
@@ -386,12 +451,13 @@ app.put('/api/exibicao', (req, res) => {
 });
 
 app.get('/api/eventos', (req, res) => {
-  const limite = Math.min(parseInt(req.query.limite, 10) || 50, 500);
+  const pedido = Number(req.query.limite ?? 50);
+  const limite = Number.isInteger(pedido) ? Math.max(1, Math.min(pedido, 500)) : 50;
   res.json(eventos.slice(-limite).reverse());
 });
 
 app.get('/api/estatisticas', (req, res) => res.json(estatisticas()));
-
+app.get('/api/diagnostico', (req,res) => res.json(estadoDiagnostico()));
 // Relatórios com filtro processado pelo servidor sobre todos os eventos persistidos.
 app.get('/api/relatorio', (req, res) => {
   const periodo = String(req.query.periodo || '7d');
@@ -405,6 +471,8 @@ app.get('/api/relatorio', (req, res) => {
 
 app.post('/api/simular', (req, res) => {
   const id = (req.body && req.body.dispositivo) || 'porta';
+  if (!Object.hasOwn(estado.dispositivos,id)) return res.status(400).json({erro:'Dispositivo inválido'});
+  if (!estado.dispositivos[id].ativo) return res.status(409).json({erro:'Canal desativado. Ative-o em Dispositivos antes de simular.'});
   const evento = processarDeteccao(id, 400 + Math.round(Math.random() * 500), true);
   if (!evento) return res.status(400).json({ erro: 'Dispositivo inválido' });
   res.json(evento);
@@ -422,20 +490,11 @@ app.post('/api/hardware/testar', (req, res) => {
   res.json({ ok: true, enviado, modo: hardware.modo, observacao: enviado ? 'Comando enviado; resposta física não confirmada' : 'Nenhuma placa conectada; teste não foi enviado' });
 });
 
-app.post('/api/notificar', (req, res) => {
-  // Não comunica com ninguém: somente registra a intenção, sem falsos positivos.
-  if (alerta) {
-    const ev = eventos.find((e) => e.id === alerta.eventoId);
-    if (ev) { ev.acao = 'Pedido de aviso registrado (demonstração)'; salvarEventos(); }
-  }
-  transmitir({ tipo: 'notificacao', enviado: false });
-  res.json({ ok: true, registrado: true, enviado: false });
-});
-
 /* ---------- Início ---------- */
 carregarEventos();
 carregarConfig();
 iniciarSerial();
-server.listen(PORT, () => {
-  console.log(`Painel disponível em http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Painel disponível em http://${HOST}:${PORT}`);
+  if (HOST !== '127.0.0.1' && HOST !== 'localhost') console.warn('ATENÇÃO: acesso na rede sem autenticação. Não exponha o servidor à Internet.');
 });

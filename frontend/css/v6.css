@@ -1,0 +1,138 @@
+/* Alerta Visual 6.0 — acabamento responsivo e acessível */
+:root{--surface-tint:#112b43;--focus:#b6dcff}
+html,body{max-width:100%;overflow-x:clip}
+.app,.view,.simulator-shell,.sim-workspace,.sim-stage,.blueprint-layout,.exp-grid,.grade-painel{min-width:0}
+.lateral{gap:22px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#2d4b6c transparent}
+.nav-grupo{flex:0 0 auto}
+.lateral-rodape{padding-top:9px;border-top:1px solid #25405d}
+.creditos-grupo{margin-top:12px;margin-bottom:9px;color:#a9bbd1;font-size:11px}
+.creditos-grupo summary{display:flex;align-items:center;justify-content:space-between;gap:5px;cursor:pointer;padding:7px 9px;border-radius:8px;list-style:none;font-weight:650}
+.creditos-grupo summary::-webkit-details-marker{display:none}
+.creditos-grupo summary:hover{background:#183452;color:#f2f8ff}
+.creditos-grupo[open] summary{color:#d6eaff}
+.creditos-grupo p{padding:7px 11px 10px;color:#b2c7de;line-height:1.8;font-size:11px}
+.assinatura{padding:0 9px;font-size:10px;white-space:normal}
+.autoria-cartao{padding:17px 21px;border-radius:15px;border:1px solid #2d4f6c;background:#0d233a;display:flex;gap:15px;margin-top:14px;align-items:center}
+.autoria-cartao strong{font-size:16px;color:#f2f7fc}.autoria-cartao p:last-child{margin-top:5px;color:#bbcee3;font-size:12px;line-height:1.65}
+.topo{min-width:0}.topo>div{min-width:0}.topo h1,.topo-sub{overflow-wrap:break-word}
+.cartao .nota{line-height:1.55}
+.btn,.menu a,button,select{touch-action:manipulation}
+.sim-component:disabled{opacity:.44;cursor:not-allowed;transform:none;border-color:#27394a}
+.sim-component:disabled:hover{background:#152a3f;transform:none}
+.bancada-intro{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.bancada-intro div{min-width:0;background:#112640;border:1px solid #315170;border-radius:12px;padding:12px 13px;display:flex;gap:10px;align-items:center;color:#d8e7f7;font-size:12px;line-height:1.4}
+.bancada-intro span{color:#88d2ff;font-weight:850;font-size:12px;flex:none}
+.flow-collapsible{padding:0;overflow:hidden;margin-bottom:14px;background:#10253a;border-color:#2e4c69}
+.flow-collapsible summary{display:flex;gap:12px;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 18px;font-weight:740;font-size:13px;list-style:none}
+.flow-collapsible summary::-webkit-details-marker{display:none}
+.flow-collapsible summary:hover{background:#19334e}
+.flow-summary-end{display:flex;gap:14px;align-items:center;color:#93bdd5;font-size:18px;flex:none}
+.flow-collapsible[open] .flow-summary-end>span:last-child{transform:rotate(180deg)}
+.flow-body{padding:6px 16px 18px;border-top:1px solid #28455f}
+.flow-collapsible .flow-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.flow-collapsible .flow-arrow{display:none}
+.flow-collapsible .flow-step{min-height:102px;grid-template-columns:32px minmax(0,1fr);padding:10px;gap:9px}
+.flow-collapsible .flow-step span{width:32px;height:32px;font-size:11px}
+.flow-collapsible .flow-step strong{font-size:12px}
+.flow-collapsible .flow-step small{font-size:11px}
+.flow-body>.nota{margin-top:12px;font-size:12px}
+.simulator-shell{margin-top:0}
+.sim-inspector-item{align-items:flex-start}
+.sim-inspector-item strong{max-width:60%;font-size:11px;line-height:1.5}
+.sim-stage{min-height:530px}
+.sim-toolbar-end{flex-wrap:wrap;justify-content:flex-end}
+.sim-toolbar{flex-wrap:wrap}
+.sim-footer{flex-wrap:wrap}
+.mapa-estado-ajuda{margin:15px 0 3px;background:#10314b;border:1px solid #336985;color:#b8def3;border-radius:11px;padding:12px 13px;font-size:12px;line-height:1.55}
+.mapa-estado-ajuda.important{color:#ffd6da;border-color:#a34e66;background:#452234}
+.mapa-estado-ajuda.off{color:#c6d1db;border-color:#4c5b70;background:#273648}
+.blueprint-detail #mapa-detalhe{min-width:0}
+.blueprint-detail .ambiente-linhas>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,1fr);gap:12px}
+.blueprint-detail .ambiente-linhas strong{max-width:none;overflow-wrap:anywhere}
+.blueprint-detail .ambiente-linhas{margin-top:16px}
+.blueprint-detail .ambiente-linhas>div{padding:11px 0}
+.blueprint-detail .ambiente-simbolo{width:54px;height:54px;margin-bottom:10px}
+.blueprint-detail #mapa-detalhe h2{font-size:27px}
+.blueprint-detail .detail-event{margin-top:14px}
+.blueprint-detail .mapa-acoes{margin-top:15px}
+.blueprint-detail .mapa-acoes .btn{width:100%;overflow-wrap:anywhere;white-space:normal}
+.blueprint-topbar{flex-wrap:wrap;height:auto;min-height:46px;padding-block:11px}
+.blueprint-topbar span{min-width:0}
+.bp-pin-label{background:#061e30ec}
+/* A ausência de dados deve ser comunicada em texto, nunca somente por opacidade. */
+.bp-pin.desativado{opacity:.65}
+.bp-pin.desativado .bp-pin-label{border:1px solid #4d6079}
+.bp-pin.desativado .bp-pin-label small{color:#c5d0dd}
+.blueprint-foot{flex-wrap:wrap}
+.grade-painel .cartao{min-width:0}
+.rolagem{min-width:0;overflow-x:auto}
+/* Layouts intermediários: evitar colunas apertadas e cabeçalhos quebrados */
+@media(max-width:1570px){
+ .sim-workspace{grid-template-columns:170px minmax(0,1fr) 205px}
+ .sim-library,.sim-inspector{padding:16px 10px}
+ .blueprint-layout{grid-template-columns:minmax(0,1fr)}
+ .blueprint-detail{display:block;min-height:0}
+ .blueprint-detail .mapa-acoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .exp-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:1170px){
+ .sim-workspace{grid-template-columns:175px minmax(0,1fr)}
+ .sim-inspector{grid-column:1/-1;border-left:0;border-top:1px solid #2b4056;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+ .sim-inspector .sim-panel-head,.sim-monitor,.sim-inspector-footer{grid-column:1/-1}
+ .sim-monitor-lines{max-height:160px}
+ .sim-stage{min-height:430px}
+ .flow-collapsible .flow-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:900px){
+ .sim-workspace{grid-template-columns:1fr}
+ .sim-library{border-right:0;border-bottom:1px solid #2b4056}
+ .sim-inspector{grid-column:1}
+ .sim-components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .sim-stage{min-height:455px}
+ .bancada-intro{grid-template-columns:1fr}
+ .bancada-intro div{padding:9px 12px}
+}
+@media(max-width:800px){
+ .app{grid-template-columns:minmax(0,1fr)}
+ .lateral{position:sticky;height:auto;max-height:none;overflow:visible;gap:8px;padding:9px 12px}
+ .lateral-rodape{display:none}
+ .topo{gap:8px}
+ .blueprint-layout{grid-template-columns:minmax(0,1fr)}
+ .blueprint-detail .mapa-acoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .creditos-grupo{display:none}
+}
+@media(max-width:620px){
+ .topo{flex-direction:column;align-items:flex-start}
+ .topo-direita{width:100%;justify-content:flex-start}
+ .blueprint-detail .mapa-acoes{grid-template-columns:1fr}
+ .flow-collapsible .flow-steps{grid-template-columns:1fr}
+ .sim-toolbar{padding:12px;align-items:flex-start}
+ .sim-toolbar-end{justify-content:flex-start;width:100%;gap:8px}
+ .sim-toolbar-end .btn{flex:1 1 auto;white-space:normal}
+ .sim-link{width:100%}
+ .sim-inspector{grid-template-columns:1fr 1fr}
+ .sim-stage{min-height:320px}
+ .sim-breadcrumb{white-space:normal;flex-wrap:wrap}
+ .sim-legend{font-size:9px}
+ .blueprint-frame{aspect-ratio:1000/650;min-height:250px}
+ .flow-collapsible summary{padding:12px}
+ .flow-summary-end{gap:5px}
+ .autoria-cartao{margin-top:14px;padding:13px}
+}
+@media(max-width:390px){
+ .sim-stage{min-height:255px}
+ .sim-inspector{grid-template-columns:1fr}
+ .blueprint-frame{aspect-ratio:1.2}
+ .blueprint-detail{padding:16px}
+ .cartao-evento h2{font-size:21px;max-width:100%;padding-right:45px}
+ .cartao-evento .icone-grande{width:53px;height:53px;top:92px;right:14px}
+ .cartao-evento .icone-grande svg{width:29px;height:29px}
+}
+@media(prefers-reduced-motion:reduce){.bp-pin,.sim-component,.flow-collapsible *, .cartao{transition:none!important;animation:none!important}}
+/* A bancada é o elemento principal: não empurrar a placa para o fim de uma área alta. */
+.sim-stage .circuito-svg{top:68px;transform:none;max-height:none}
+@media(max-width:1250px){.blueprint-layout{grid-template-columns:minmax(0,1fr)}}
+@media(min-width:1251px) and (max-width:1570px){.blueprint-layout{grid-template-columns:minmax(0,1fr) minmax(275px,0.42fr)}}
+@media(max-width:900px){.sim-stage .circuito-svg{top:54px}}
+@media(max-width:600px){.sim-stage .circuito-svg{top:38px}}
+@media(min-width:1251px){.blueprint-detail .mapa-acoes{grid-template-columns:1fr}}
