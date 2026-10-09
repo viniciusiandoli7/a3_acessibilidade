@@ -86,7 +86,11 @@ function carregarEventos() {
 }
 function salvarEventos() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(eventos.slice(-MAX_EVENTOS), null, 2));
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    // Substituição atômica: evita histórico parcial se o processo cair durante a escrita.
+    const temp = DATA_FILE + '.tmp';
+    fs.writeFileSync(temp, JSON.stringify(eventos.slice(-MAX_EVENTOS), null, 2));
+    fs.renameSync(temp, DATA_FILE);
   } catch (e) {
     console.warn('Não foi possível salvar o histórico:', e.message);
   }
@@ -478,6 +482,18 @@ app.post('/api/simular', (req, res) => {
   res.json(evento);
 });
 
+// Limpeza opcional da sessão de apresentação: remove SOMENTE eventos simulados.
+// Nunca exclui histórico recebido de placa física/Wokwi.
+app.delete('/api/eventos/simulacoes', (req, res) => {
+  if (alerta && alerta.fonte === 'simulacao') encerrarAlerta('silenciado');
+  const anteriores = eventos.length;
+  eventos = eventos.filter((evento) => evento.fonte !== 'simulacao');
+  const removidos = anteriores - eventos.length;
+  salvarEventos();
+  transmitir({ tipo: 'estado' });
+  res.json({ ok: true, removidos, preservados: eventos.length });
+});
+
 app.post('/api/alerta/silenciar', (req, res) => {
   encerrarAlerta('silenciado');
   transmitir({ tipo: 'estado' });
@@ -485,6 +501,10 @@ app.post('/api/alerta/silenciar', (req, res) => {
 });
 
 app.post('/api/hardware/testar', (req, res) => {
+  if (!estado.exibicao) return res.status(409).json({ erro: 'Ative as saídas em Dispositivos antes de testar.' });
+  if (alerta && alerta.fonte !== 'simulacao' && alerta.critico) {
+    return res.status(409).json({ erro: 'Teste físico indisponível durante alerta crítico real.' });
+  }
   const enviado = enviarHardware('TESTE');
   transmitir({ tipo: 'teste', enviado });
   res.json({ ok: true, enviado, modo: hardware.modo, observacao: enviado ? 'Comando enviado; resposta física não confirmada' : 'Nenhuma placa conectada; teste não foi enviado' });

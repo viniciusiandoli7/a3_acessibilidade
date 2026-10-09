@@ -71,6 +71,7 @@
   let guiaExecutando = false;
   const monitorLines = [];
   let lastRenderNotice = '';
+  let numeroAtualizacao = 0;
 
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -269,12 +270,14 @@
     const corNome = a ? (CORES.find((c) => c[0] === a.cor) || ['',''])[1] : '—';
     const telemetria = hw.conectado && hw.ultimaMensagem && Date.now() - new Date(hw.ultimaMensagem).getTime() < 10000;
     const saida = !exib ? 'Saídas desabilitadas' : hw.modo === 'simulado' ? 'Prévia de demonstração' : telemetria ? 'Telemetria do firmware' : 'Aguardando telemetria';
+    const testarFisicoDisponivel = hw.conectado && exib && !(a?.critico && a?.fonte !== 'simulacao');
     $('al-hardware').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-azul">Sinalização</span><span class="selo-texto">' + esc(saida) + '</span></div>' +
       '<h2 class="titulo-cartao">Luz e vibração</h2>' +
       '<div class="par"><span>Padrão LED configurado</span><strong>' + (a && exib ? esc(a.led) + ' · ' + esc(corNome) : 'Em espera') + '</strong></div>' +
       '<div class="par"><span>LED (firmware)</span><strong>' + (telemetria ? (hw.ledAtivo ? 'Acionado' : 'Em repouso') : 'Sem confirmação') + '</strong></div>' +
       '<div class="par"><span>Motor (firmware)</span><strong>' + (telemetria ? (hw.motorAtivo ? 'Acionado' : 'Em repouso') : 'Sem confirmação') + '</strong></div>' +
-      '<div class="grow"></div><button type="button" class="btn btn-verde btn-bloco" id="btn-testar">' + icone('check') + 'Testar sinal de hardware</button>';
+      '<div class="grow"></div><button type="button" class="btn btn-verde btn-bloco" id="btn-testar" ' + (testarFisicoDisponivel?'':'disabled') + ' title="' + (testarFisicoDisponivel?'Envia teste à placa; confirme a resposta fisicamente':'Indisponível sem placa conectada ou durante alerta crítico real') + '">' + icone('check') + 'Testar saídas físicas</button>' +
+      (!testarFisicoDisponivel?'<p class="nota">Para executar este teste, conecte a placa física ou o Wokwi e habilite as saídas. Não disponível durante alerta crítico real.</p>':'');
     const dispositivosAtivos = Object.values(estado.dispositivos).filter(d=>d.ativo);
     $('al-malha').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-verde">Seus canais</span><span class="status-pill neutro">' + dispositivosAtivos.length + '/4 habilitados</span></div><h2 class="titulo-cartao">Monitoramento configurado</h2>' +
       '<ul class="itens-malha">' + DISPOSITIVOS.map(m => '<li>' + icone(m.icone) + '<span>' + esc(m.nome) + '</span><strong class="est ' + (estado.dispositivos[m.id].ativo ? 'cor-texto-verde' : '') + '">' + (estado.dispositivos[m.id].ativo ? 'Habilitado' : 'Desativado') + '</strong></li>').join('') + '</ul>' +
@@ -290,9 +293,11 @@
     $('view-alertas').addEventListener('click', async (e) => {
       try {
         if (e.target.closest('#btn-silenciar')) await Api.silenciar();
-        else if (e.target.closest('#btn-testar')) await Api.testarHardware();
-
-      } catch (_) { aviso('Não foi possível concluir a ação.'); }
+        else if (e.target.closest('#btn-testar')) {
+          const resultado = await Api.testarHardware();
+          aviso(resultado.observacao || 'Comando enviado para o hardware.');
+        }
+      } catch (err) { aviso(err.message || 'Não foi possível concluir a ação.'); }
     });
   }
 
@@ -376,9 +381,15 @@
     if (a) {
       titulo.textContent = a.fonte === 'simulacao' ? 'Demonstração em andamento.' : 'Um sinal precisa da sua atenção.';
       descricao.textContent = TIPOS_UI[a.tipo].titulo + ' · ' + a.origem + '. Veja o aviso e saiba como agir.';
+    } else if (estado.hardware.modo === 'simulado') {
+      titulo.textContent = 'Demonstração pronta.';
+      descricao.textContent = 'Sem Arduino físico conectado. Use a demonstração para testar os avisos sem acionar componentes reais.';
+    } else if (!estado.hardware.conectado) {
+      titulo.textContent = 'Aguardando o Arduino.';
+      descricao.textContent = 'Sem confirmação de comunicação com a placa. Verifique o cabo, a porta serial e o firmware.';
     } else {
-      titulo.textContent = 'Tudo tranquilo por aqui.';
-      descricao.textContent = 'Se algum som importante for percebido, você vai ver o aviso aqui.';
+      titulo.textContent = 'Nenhum alerta em andamento.';
+      descricao.textContent = 'Comunicação com a placa ativa; isso não comprova segurança dos cômodos nem o funcionamento elétrico dos sensores.';
     }
   }
 
@@ -446,9 +457,10 @@
     $('sim-link').textContent=ligado?'● '+modo+' conectado':fisico||wokwi?'○ Aguardando conexão':'● Circuito ilustrativo';
     $('sim-link').className='sim-link '+(ligado?'is-online':'');
     $('status-prototipo').textContent=ligado?'Conectado':fisico||wokwi?'Sem conexão':'Simulação';
-    $('sim-hardware-test').disabled=!ligado;
+    const testeFisicoPossivel = ligado && estado.exibicao && !(a?.critico && a?.fonte !== 'simulacao');
+    $('sim-hardware-test').disabled=!testeFisicoPossivel;
     $('sim-run').disabled=!estado.dispositivos.porta.ativo;
-    $('sim-hardware-test').title=ligado?'Envia TESTE pela comunicação serial (confirme visualmente a resposta)':'Disponível somente com Arduino ou Wokwi conectado';
+    $('sim-hardware-test').title=!ligado?'Disponível somente com Arduino ou Wokwi conectado':!estado.exibicao?'Ative as saídas em Dispositivos para testar':!testeFisicoPossivel?'Não teste saídas durante um alerta crítico real':'Envia TESTE pela comunicação serial (confirme visualmente a resposta)';
     $('status-origem').textContent=modo;
     $('status-explicacao').textContent=ligado?'A placa informa o estado ao servidor. Confirme LED e motor presencialmente; a telemetria não prova a resposta elétrica.':'Este desenho representa o projeto; simulações atualizam a tela, mas não ligam LEDs ou motores reais.';
     const ult=eventos[0];
@@ -651,9 +663,12 @@
   }
 
   async function atualizarTudo() {
+    const atualizacao = ++numeroAtualizacao;
     try {
       const periodo = $('periodo-rel').value;
       const [e, ev, st, report] = await Promise.all([Api.estado(), Api.eventos(200), Api.estatisticas(), Api.relatorio(periodo)]);
+      // Uma resposta antiga nunca pode sobrescrever o estado de uma atualização recente.
+      if (atualizacao !== numeroAtualizacao || periodo !== $('periodo-rel').value) return;
       estado = e; eventos = ev; stats = st; relatorio = report;
       pintarConexao();
       renderDashboard();
@@ -668,7 +683,7 @@
       indicador.hidden = !estado.alerta; 
       if (!estado.alerta) esconderAlerta();
     } catch (_) {
-      aviso('Não foi possível carregar os dados do servidor.');
+      if (atualizacao === numeroAtualizacao) aviso('Não foi possível carregar os dados do servidor.');
     }
   }
 
@@ -703,6 +718,17 @@
     $('periodo-rel').addEventListener('change', atualizarTudo);
     $('tipo-rel').addEventListener('change', renderRelatorios);
     $('btn-exportar').addEventListener('click', exportarCsv);
+    $('btn-limpar-simulacoes').addEventListener('click', async () => {
+      const botao = $('btn-limpar-simulacoes');
+      if (!window.confirm('Apagar somente os eventos de simulação do histórico? Eventos recebidos do Arduino e do Wokwi serão preservados.')) return;
+      botao.disabled = true;
+      try {
+        const resultado = await Api.limparSimulacoes();
+        await atualizarTudo();
+        aviso(resultado.removidos + ' evento(s) simulado(s) removido(s). Registros físicos preservados.');
+      } catch (e) { aviso(e.message || 'Não foi possível limpar os testes.'); }
+      finally { botao.disabled = false; }
+    });
     $('data-atual').textContent = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
     ligarEventosDispositivos();
     ligarEventosAlertas();

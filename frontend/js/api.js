@@ -25,6 +25,7 @@ const Api = {
   simular: (dispositivo) => Api.enviar('POST', '/api/simular', { dispositivo }),
   silenciar: () => Api.enviar('POST', '/api/alerta/silenciar'),
   testarHardware: () => Api.enviar('POST', '/api/hardware/testar'),
+  limparSimulacoes: () => Api.enviar('DELETE', '/api/eventos/simulacoes'),
   diagnostico: () => Api.obter('/api/diagnostico'),
 
   conectar(aoReceber, aoMudarConexao) {

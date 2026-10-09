@@ -55,6 +55,13 @@ MOCK_JS=r'''
   }
   if (caminho==='/api/alerta/silenciar'){cfg.alerta=null;broadcast({tipo:'alerta_fim',motivo:'silenciado'});return json({ok:true})}
   if (caminho==='/api/hardware/testar')return json({ok:true,enviado:false,observacao:'Nenhum hardware conectado'});
+  if (caminho==='/api/eventos/simulacoes'&&method==='DELETE') {
+    const before=eventos.length;
+    eventos=eventos.filter(e=>e.fonte!=='simulacao');
+    if(cfg.alerta?.fonte==='simulacao')cfg.alerta=null;
+    broadcast({tipo:'estado'});
+    return json({ok:true,removidos:before-eventos.length,preservados:eventos.length});
+  }
   return json({erro:'Não implementado '+caminho},404);
  };
 })();

@@ -136,3 +136,117 @@ html,body{max-width:100%;overflow-x:clip}
 @media(max-width:900px){.sim-stage .circuito-svg{top:54px}}
 @media(max-width:600px){.sim-stage .circuito-svg{top:38px}}
 @media(min-width:1251px){.blueprint-detail .mapa-acoes{grid-template-columns:1fr}}
+
+
+/* Correção estrutural dos cards de eventos: reservar área própria para o ícone */
+.grade-painel{align-items:start}
+.cartao-evento{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) clamp(72px,8vw,104px);
+  grid-template-areas:
+    "rotulo rotulo"
+    "titulo icone"
+    "nota icone"
+    "rodape rodape";
+  column-gap:18px;
+  row-gap:14px;
+  align-content:start;
+}
+.cartao-evento .rotulo{grid-area:rotulo;min-width:0}
+.cartao-evento h2{grid-area:titulo;max-width:none;padding-right:0;min-width:0;overflow-wrap:anywhere}
+.cartao-evento .nota{grid-area:nota;min-width:0;max-width:none;padding-right:0;overflow-wrap:anywhere}
+.cartao-evento .icone-grande{
+  grid-area:icone;
+  position:static;
+  justify-self:end;
+  align-self:center;
+  margin:2px 0 0;
+  width:clamp(70px,8vw,100px);
+  height:clamp(70px,8vw,100px);
+}
+.cartao-evento .rodape{grid-area:rodape;min-width:0;margin-top:6px}
+.cartao-evento.vazio h2{max-width:none}
+@media(max-width:980px){
+  .cartao-evento{grid-template-columns:minmax(0,1fr) 82px;column-gap:14px}
+  .cartao-evento .icone-grande{width:82px;height:82px}
+  .cartao-evento .icone-grande svg{width:42px;height:42px}
+}
+@media(max-width:600px){
+  .cartao-evento{grid-template-columns:minmax(0,1fr) 70px;row-gap:12px}
+  .cartao-evento .icone-grande{width:70px;height:70px;align-self:start}
+  .cartao-evento .rodape{flex-wrap:wrap}
+}
+@media(max-width:390px){
+  .cartao-evento{grid-template-columns:minmax(0,1fr) 53px}
+  .cartao-evento h2{font-size:21px;max-width:none;padding-right:0}
+  .cartao-evento .icone-grande{width:53px;height:53px;right:auto;top:auto;margin-top:0}
+  .cartao-evento .icone-grande svg{width:29px;height:29px}
+}
+
+
+/* v6.2 — acabamento final: impedir colisões e manter leitura em qualquer largura */
+.cartao, .cabecalho-cartao, .cartao-evento, .cartao-evento .rodape,
+.cartao-evento .rotulo, .cartao-evento h2, .cartao-evento .nota,
+.coluna-resumo, .coluna-resumo > *, .resumo > div,
+.grade-alertas > *, .grade-relatorio > *, .grade-stats > *,
+.grade-painel > *, .lista-hw, .filtros-tabela, .filtros-direita {min-width:0}
+.cartao-evento .icone-grande {z-index:0;pointer-events:none}
+.cartao-evento h2,.cartao-evento .nota {position:relative;z-index:1}
+.cartao-evento .rodape{overflow-wrap:anywhere;flex-wrap:wrap;align-items:flex-start}
+.cartao-evento .rodape span{min-width:0;flex:1 1 135px}
+.cartao-evento .rodape time{margin-left:auto}
+.resumo{gap:12px}.resumo > div:last-child{min-width:0}
+.resumo :is(.rotulo,.numero-pequeno,.nota){overflow-wrap:anywhere}
+.cabecalho-cartao{align-items:flex-start}.cabecalho-cartao>div{min-width:0}
+.cabecalho-cartao h2,.exp-grid h2,.exp-grid h3{overflow-wrap:anywhere}
+.filtros-tabela{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.filtros-tabela .btn{flex:0 1 auto;white-space:normal}
+.filtros-tabela select{max-width:100%;min-width:0}
+#btn-limpar-simulacoes{color:#ffd9b7;border-color:#876346;background:#342a2b}
+#btn-limpar-simulacoes:hover{background:#4b3431}
+#btn-limpar-simulacoes:disabled{opacity:.45}
+.sim-components .sim-component>span:nth-child(2){min-width:0;overflow-wrap:anywhere}
+.sim-toolbar-end .btn{white-space:normal}
+.sim-footer>div{min-width:0;flex-wrap:wrap;overflow-wrap:anywhere}
+.itens-malha li,.lista-hw li{min-width:0;gap:9px}
+.itens-malha li>span,.lista-hw li>span{min-width:0;overflow-wrap:anywhere}
+.sim-inspector-item strong{overflow-wrap:anywhere}
+#al-hardware button:disabled{opacity:.55}
+.alerta-tela{overflow-y:auto;overscroll-behavior:contain;align-items:safe center}
+.alerta-conteudo{max-height:calc(100dvh - 30px);overflow-y:auto;overflow-x:hidden}
+.alerta-conteudo :is(h2,p){overflow-wrap:anywhere}
+.dashboard-aviso>div{min-width:0;overflow-wrap:anywhere}
+.blueprint-detail,.blueprint-card,.simulator-shell{max-width:100%}
+@media (max-width:1400px) and (min-width:801px){
+ .cartao-evento{grid-template-columns:minmax(0,1fr) 90px}
+ .cartao-evento .icone-grande{width:90px;height:90px}
+}
+@media (max-width:1050px) and (min-width:801px){
+ .coluna-resumo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .resumo{min-height:115px;padding:14px}
+ .resumo-icone{width:36px;height:36px;font-size:17px}
+}
+@media (max-width:800px){
+ .coluna-resumo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+ .resumo{min-height:100px;padding:12px}
+ .resumo-icone{width:33px;height:33px;font-size:16px}
+ .resumo .numero{font-size:24px}
+}
+@media (max-width:600px){
+ .coluna-resumo{grid-template-columns:1fr}
+ .resumo{min-height:84px}
+ .cartao-evento{min-height:235px;padding:18px}
+ .cartao-evento h2{font-size:clamp(20px,5.5vw,26px)}
+ .cartao-evento .rodape{padding:11px}
+ .filtros-tabela{width:100%}
+ .filtros-tabela>*{flex:1 1 135px}
+ .filtros-tabela select{width:100%}
+ .alerta-tela{padding:10px}
+ .alerta-conteudo{padding:20px 14px;gap:11px}
+}
+@media (max-width:390px){
+ .cartao-evento{grid-template-columns:minmax(0,1fr) 48px;column-gap:9px}
+ .cartao-evento .icone-grande{width:48px;height:48px}
+ .cartao-evento .icone-grande svg{width:26px;height:26px}
+ .cartao-evento .nota{font-size:11px}
+}
