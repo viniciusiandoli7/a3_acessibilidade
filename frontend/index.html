@@ -7,7 +7,7 @@
   <meta name="description" content="Alerta Visual — projeto acadêmico de acessibilidade desenvolvido por Vinicius Iandoli, Lais Toyama, Vinicius Centurion e Cesar Melo.">
   <meta name="author" content="Vinicius Iandoli, Lais Toyama, Vinicius Centurion, Cesar Melo">
   <title>Painel | Sistema de Alerta Visual</title>
-  <link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/v4.css"><link rel="stylesheet" href="css/v6.css">
+  <link rel="stylesheet" href="css/style.css?v=7.0.0"><link rel="stylesheet" href="css/v4.css?v=7.0.0"><link rel="stylesheet" href="css/v6.css?v=7.0.0"><link rel="stylesheet" href="css/layout-final.css?v=7.0.0">
 </head>
 <body>
   <a href="#conteudo" class="pular-link">Pular para o conteúdo</a>
@@ -31,7 +31,7 @@
         <details class="creditos-grupo"><summary>Equipe de desenvolvimento <span aria-hidden="true">⌄</span></summary>
           <p>Vinicius Iandoli<br>Lais Toyama<br>Vinicius Centurion<br>Cesar Melo</p>
         </details>
-        <p class="assinatura">Projeto acadêmico · v6.2</p>
+        <p class="assinatura">Projeto acadêmico · v7.0</p>
       </div>
     </aside>
     <main id="conteudo" tabindex="-1">
@@ -51,11 +51,6 @@
           <section class="cartao tabela-cartao" aria-labelledby="h-hist-dash"><div class="cabecalho-cartao"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2 id="h-hist-dash">Atividades recentes</h2></div><a href="#relatorios" class="btn btn-outline btn-sm">Ver histórico completo →</a></div><div class="rolagem"><table><thead><tr><th scope="col">HORÁRIO</th><th scope="col">EVENTO</th><th scope="col">AMBIENTE</th><th scope="col">DURAÇÃO</th></tr></thead><tbody id="tbody-dash"></tbody></table></div></section>
           <section class="cartao lista-hw" aria-labelledby="h-hw"><div class="cabecalho-cartao"><div><p class="eyebrow">EQUIPAMENTOS</p><h2 id="h-hw">Seu sistema</h2></div><span class="status-pill neutro" id="estado-hw-resumo">Verificando</span></div><ul id="lista-hw"></ul><a class="link-suave" href="#prototipo">Acompanhar protótipo ao vivo →</a></section>
         </div>
-        <div class="atalhos-3" aria-label="Acessos rápidos">
-          <a href="#mapa" class="atalho-3"><span aria-hidden="true">⌂</span><strong>Mapa da casa</strong><small>Veja os cômodos e os sinais</small><b aria-hidden="true">→</b></a>
-          <a href="#prototipo" class="atalho-3"><span aria-hidden="true">⌘</span><strong>Bancada Arduino</strong><small>Explore o circuito interativo</small><b aria-hidden="true">→</b></a>
-          <a href="#guia" class="atalho-3"><span aria-hidden="true">▷</span><strong>Apresentar projeto</strong><small>Comece um teste guiado</small><b aria-hidden="true">→</b></a>
-        </div>
       </section>
       <section id="view-dispositivos" class="view" hidden>
         <div class="intro-secao"><p class="eyebrow">PERSONALIZAÇÃO</p><h2>Os sinais do seu jeito</h2><p>Escolha quais canais acompanhar. Ative, ajuste a sensibilidade e veja a cor de cada alerta.</p></div>
@@ -68,15 +63,15 @@
         <div class="grade-alertas"><article class="cartao" id="al-principal"></article><article class="cartao" id="al-hardware"></article><article class="cartao" id="al-malha"></article><article class="cartao" id="al-evacuacao"></article></div>
       </section>
       <section id="view-prototipo" class="view" hidden>
-        <div class="intro-secao lab-intro"><div><p class="eyebrow">LABORATÓRIO DIGITAL</p><h2>Arduino, de perto.</h2><p>Uma bancada interativa para entender cada ligação e acompanhar os sinais do sistema. A visualização não executa o firmware — recebe os estados do servidor.</p></div><span id="prototipo-fonte" class="prototipo-fonte">Aguardando…</span></div>
-        <section class="bancada-intro" aria-label="Como utilizar a bancada"><div><span>01</span> Escolha um sensor na coluna esquerda</div><div><span>02</span> Observe a simulação no centro</div><div><span>03</span> Veja o resultado no monitor à direita</div></section>
+        <div class="intro-secao lab-intro"><div><p class="eyebrow">LABORATÓRIO DIGITAL</p><h2>Arduino, de perto.</h2><p>Uma bancada digital para representar o circuito do projeto e mostrar, em tempo real, como cada alerta seria interpretado pelo sistema.</p></div><span id="prototipo-fonte" class="prototipo-fonte">Aguardando…</span></div>
+        <section class="bancada-intro" aria-label="Como utilizar a bancada"><div><span>01</span> Escolha um sensor ou gere um teste</div><div><span>02</span> Observe o circuito e a resposta do sistema</div><div><span>03</span> Confira no monitor se foi simulação ou hardware real</div></section>
         <details class="cartao flow-shell flow-collapsible"><summary><span>◎ &nbsp; Entender o caminho do alerta</span><span class="flow-summary-end"><span id="flow-estado" class="status-pill neutro">Em espera</span> <span aria-hidden="true">⌄</span></span></summary><div class="flow-body"><h2 id="h-flow-prototipo" class="sr-only">Do sensor até o aviso visual</h2><div id="flow-steps" class="flow-steps" aria-label="Etapas do processamento do alerta"></div><p id="flow-explicacao" class="nota">Um evento percorre sensor, backend, interface e saídas.</p></div></details>
         <section class="cartao simulator-shell" aria-label="Bancada visual interativa do Arduino">
           <div class="sim-toolbar"><div class="sim-breadcrumb"><span class="sim-orb"></span><span>PROTÓTIPO / UNO R3</span><span class="sim-slash">/</span><strong>Visão do circuito</strong></div><div class="sim-toolbar-end"><span id="sim-link" class="sim-link">Aguardando conexão</span><button type="button" id="sim-reset" class="btn btn-outline btn-sm">↺ &nbsp; Silenciar</button><button type="button" id="sim-run" class="btn btn-escuro btn-sm">▶ &nbsp; Simular campainha</button></div></div>
           <div class="sim-workspace">
-            <aside class="sim-library" aria-label="Componentes e testes"><div class="sim-panel-head"><p class="eyebrow">TESTAR EVENTOS</p><h3>Escolha um sensor</h3><small>Esta opção cria eventos de demonstração, sem acionar a placa física.</small></div>
+            <aside class="sim-library" aria-label="Componentes e testes"><div class="sim-panel-head"><p class="eyebrow">TESTAR EVENTOS</p><h3>Escolha um sensor</h3><small>Use estes botões para ensaiar o comportamento do sistema sem depender da placa física.</small></div>
               <div id="sim-components" class="sim-components"></div>
-              <div class="sim-library-help"><span class="sim-help-icon">i</span><span>Cada teste entra no histórico como <strong>simulação</strong>, não como leitura física.</span></div>
+              <div class="sim-library-help"><span class="sim-help-icon">i</span><span>Cada teste fica marcado como <strong>simulação</strong>. O alerta real só existe quando vier da placa.</span></div>
             </aside>
             <div class="sim-stage"><div class="sim-grid" aria-hidden="true"></div>
               <div class="sim-stage-header"><span>ESQUEMA FUNCIONAL · VISTA SUPERIOR</span><span class="sim-status-led"><i id="sim-live-dot"></i><span id="sim-live-label">Em espera</span></span></div>
@@ -126,14 +121,14 @@
               </svg>
               <div class="sim-legend"><span><i class="leg-azul"></i> Sensores A0–A3</span><span><i class="leg-vermelho"></i> LED / alerta</span><span><i class="leg-verde"></i> Saídas digitais</span></div>
             </div>
-            <aside class="sim-inspector"><div class="sim-panel-head"><p class="eyebrow">MONITOR</p><h3>O que está acontecendo?</h3><small>Fonte e estado informados pelo backend</small></div>
-              <div class="sim-inspector-item"><span>Conexão</span><strong id="status-prototipo">Verificando</strong></div>
-              <div class="sim-inspector-item"><span>Fonte</span><strong id="status-origem">—</strong></div>
-              <div class="sim-inspector-item"><span>LED (real/prévia)</span><strong id="led-label">—</strong></div>
-              <div class="sim-inspector-item"><span>Vibração (real/prévia)</span><strong id="motor-label">—</strong></div>
-              <div class="sim-inspector-item"><span>Último sinal</span><strong id="status-ultimo">—</strong></div>
+            <aside class="sim-inspector"><div class="sim-panel-head"><p class="eyebrow">MONITOR</p><h3>Resumo da bancada</h3><small>Leitura consolidada do servidor em linguagem mais simples</small></div>
+              <div class="sim-inspector-item"><span>Modo atual</span><strong id="status-prototipo">Verificando</strong></div>
+              <div class="sim-inspector-item"><span>Origem do sinal</span><strong id="status-origem">—</strong></div>
+              <div class="sim-inspector-item"><span>Alerta visual</span><strong id="led-label">—</strong></div>
+              <div class="sim-inspector-item"><span>Resposta tátil</span><strong id="motor-label">—</strong></div>
+              <div class="sim-inspector-item"><span>Último evento</span><strong id="status-ultimo">—</strong></div>
               <div class="sim-monitor"><div class="sim-monitor-title"><span class="sim-terminal">›_</span> Mensagens</div><div id="sim-monitor-lines" class="sim-monitor-lines" role="log" aria-live="off"><p>Iniciando bancada…</p></div></div>
-              <div class="sim-inspector-footer"><button class="btn btn-escuro btn-bloco" type="button" id="sim-hardware-test">Testar saídas físicas</button><a class="btn btn-outline btn-bloco" href="#dispositivos">Configurar sensores ↗</a><p id="status-explicacao" class="nota">A bancada desenhada é ilustrativa; a confirmação das saídas depende da placa e da telemetria.</p></div>
+              <div class="sim-inspector-footer"><button class="btn btn-escuro btn-bloco" type="button" id="sim-hardware-test">Testar saídas físicas</button><a class="btn btn-outline btn-bloco" href="#dispositivos">Configurar sensores ↗</a><p id="status-explicacao" class="nota">O desenho do circuito representa o projeto. Quando houver Arduino conectado, esta área passa a refletir o retorno da placa.</p></div>
             </aside>
           </div>
           <div class="sim-footer"><div><span class="sim-foot-indicator"></span><span id="arduino-meta">Aguardando dados</span></div><div><span id="placa-atualizacao">Sem eventos</span><span>•</span><span>Comunicação REST + WebSocket</span></div></div>
@@ -230,5 +225,5 @@
   </div>
   <div id="alerta-tela" class="alerta-tela" role="alertdialog" aria-modal="true" aria-labelledby="alerta-titulo" aria-describedby="alerta-desc" hidden><div class="alerta-conteudo"><span class="alerta-identificacao" id="alerta-identificacao">AVISO IMPORTANTE</span><div id="alerta-icone" class="alerta-icone" aria-hidden="true"></div><h2 id="alerta-titulo"></h2><p id="alerta-desc"></p><div class="alerta-acoes"><button type="button" class="btn btn-grande" id="alerta-silenciar">Silenciar sinal</button><button type="button" class="btn btn-grande btn-vazado" id="alerta-fechar">Continuar acompanhando</button></div><p class="alerta-ajuda">Silenciar interrompe o aviso, mas não elimina possíveis riscos. Na dúvida, procure um lugar seguro.</p></div></div>
   <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div><div id="anuncio" class="sr-only" aria-live="assertive"></div>
-  <script src="js/api.js"></script><script src="js/app.js"></script>
+  <script src="js/api.js?v=7.0.0"></script><script src="js/app.js?v=7.0.0"></script>
 </body></html>

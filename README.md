@@ -1,14 +1,10 @@
-<<<<<<< HEAD
 <div align="center">
-=======
-# Alerta Visual — aplicação integrada e apresentação acadêmica
->>>>>>> 1103737ffb805cc1d7adf90d9f08baa3668e53ea
 
 # 🔔 a3_acessibilidade
 
 ### Alerta Visual — tecnologia para transformar sinais sonoros em informação visual e tátil
 
-**Projeto acadêmico de acessibilidade · Versão 6.2**
+**Projeto acadêmico de acessibilidade · Versão 7.0**
 
 <p>
   <img src="https://img.shields.io/badge/Status-Protótipo%20acadêmico-3b82f6?style=for-the-badge" alt="Status: Protótipo acadêmico" />
@@ -32,7 +28,7 @@ O **Alerta Visual** é um protótipo acadêmico pensado para explorar como recur
 O projeto foi desenvolvido com foco em uma experiência simples de entender, mesmo para quem não tem familiaridade com eletrônica ou programação. Por isso, apresenta um **mapa interativo da casa**, uma **bancada virtual do Arduino** e um **modo de demonstração**, permitindo apresentar a ideia mesmo sem a placa física.
 
 > [!IMPORTANT]
-> **Este é um protótipo experimental, não um sistema de segurança certificado.** Os canais do Arduino usam sensores de amplitude sonora; eles **não identificam automaticamente** uma campainha, o choro de um bebê ou a presença de fumaça. O canal relacionado a fumaça representa a captação do **som de um detector de fumaça independente**, não a detecção direta de fumaça. A planta baixa e o circuito são ilustrações funcionais, não instalações validadas.
+> **Este é um protótipo experimental, não um sistema de segurança certificado.** Os canais do Arduino usam sensores de amplitude sonora; eles **não identificam automaticamente** uma campainha, o choro de um bebê ou a presença de fumaça. O canal relacionado a fumaça representa a captação do **som de um detector de fumaça independente**, não a detecção direta de fumaça. A planta baixa e o circuito são representações visuais interativas, não instalações validadas.
 
 ### 🎯 Objetivos
 
@@ -45,7 +41,7 @@ O projeto foi desenvolvido com foco em uma experiência simples de entender, mes
 ## 🖥️ Interface da aplicação
 
 <div align="center">
-  <img src="tests/screenshots/dashboard-v62.png" width="100%" alt="Painel principal do Alerta Visual com indicadores, eventos e status do sistema" />
+  <img src="tests/screenshots/dashboard-v7-1366.png" width="100%" alt="Painel principal do Alerta Visual com indicadores, eventos e status do sistema" />
   <sub><b>Painel principal</b> — visão geral dos eventos, alertas e dispositivos.</sub>
 </div>
 
@@ -69,7 +65,7 @@ O projeto foi desenvolvido com foco em uma experiência simples de entender, mes
 
 <br />
 <div align="center">
-  <img src="tests/screenshots/dashboard-evento-v62-390.png" width="330" alt="Painel adaptado a 390 pixels com evento de demonstração" />
+  <img src="tests/screenshots/dashboard-v7-390.png" width="330" alt="Painel adaptado a 390 pixels com evento de demonstração" />
 </div>
 
 </details>
@@ -135,11 +131,7 @@ Pelo GitHub, use **Code → Download ZIP**, extraia os arquivos e abra um termin
 ### 2. Inicie o servidor
 
 ```bash
-<<<<<<< HEAD
 cd backend
-=======
-cd a3_acessibilidade/backend
->>>>>>> 1103737ffb805cc1d7adf90d9f08baa3668e53ea
 npm install
 npm start
 ```
@@ -304,3 +296,12 @@ Há um roteiro mais completo em [`APRESENTACAO.md`](APRESENTACAO.md).
 <div align="center">
   <sub><strong>Alerta Visual</strong> · A tecnologia deve ampliar o acesso à informação.</sub>
 </div>
+
+
+## 🧩 Refinamento de interface v7.0
+
+- Cartões de eventos reconstruídos com **corpo de texto e ícone em colunas independentes**; títulos e descrições deixam de herdar posicionamentos de CSS antigos.
+- Rodapés dos cartões permanecem dentro do componente em telas pequenas e grandes.
+- Remoção dos indicadores redundantes “Configurada” para iluminação/vibração no resumo inicial. Estados físicos confiáveis são exibidos na bancada apenas quando há telemetria.
+- Testes de colisão realizados com alerta de fumaça ativo, além de verificações responsivas em oito páginas.
+- O desenho da bancada permanece **representativo**; para simular a execução eletrônica do firmware utilize Wokwi e para validar hardware use Arduino real.

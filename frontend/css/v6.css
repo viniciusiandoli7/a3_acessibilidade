@@ -250,3 +250,29 @@ html,body{max-width:100%;overflow-x:clip}
  .cartao-evento .icone-grande svg{width:26px;height:26px}
  .cartao-evento .nota{font-size:11px}
 }
+
+
+/* V6.3 — limpeza final do painel e da bancada */
+.atalhos-3{display:none!important}
+.cartao-evento{display:grid;grid-template-columns:minmax(0,1fr) clamp(84px,8vw,108px);grid-template-areas:"rotulo rotulo" "texto icone" "rodape rodape";column-gap:18px;row-gap:14px;align-items:start}
+.cartao-evento .evento-texto{grid-area:texto;min-width:0;display:grid;gap:14px;align-content:start}
+.cartao-evento h2,.cartao-evento .nota{padding-right:0!important;max-width:none!important}
+.cartao-evento .icone-grande{grid-area:icone;position:relative!important;top:auto!important;right:auto!important;justify-self:end;align-self:center;display:flex;align-items:center;justify-content:center;flex:none}
+.cartao-evento .rodape{grid-area:rodape}
+@media(max-width:1400px){.cartao-evento{grid-template-columns:minmax(0,1fr) 88px}.cartao-evento .icone-grande{width:88px;height:88px}}
+@media(max-width:700px){.cartao-evento{grid-template-columns:minmax(0,1fr) 68px}.cartao-evento .icone-grande{width:68px;height:68px;align-self:start}.cartao-evento .evento-texto{gap:10px}}
+@media(max-width:420px){.cartao-evento{grid-template-columns:minmax(0,1fr) 54px;column-gap:10px}.cartao-evento .icone-grande{width:54px;height:54px}.cartao-evento .icone-grande svg{width:28px;height:28px}}
+.simulator-shell .sim-toolbar{padding-block:12px}
+.simulator-shell .sim-breadcrumb{font-size:12px}
+.sim-library .sim-panel-head small,.sim-inspector .sim-panel-head small{line-height:1.45}
+.sim-inspector{background:linear-gradient(180deg,#10263b,#0f2337)}
+.sim-inspector-item{padding:8px 0;border-bottom:1px solid #21384f}
+.sim-inspector-item:last-of-type{border-bottom:0}
+.sim-inspector-item span{color:#90acc6;font-size:11px}
+.sim-inspector-item strong{font-size:12px;max-width:100%}
+.sim-monitor{margin-top:8px}
+.sim-monitor-lines{max-height:210px}
+#status-explicacao{font-size:11px;line-height:1.55;color:#b4c7d9}
+.sim-footer{padding:12px 16px}
+.bancada-intro{margin-bottom:10px}
+.flow-collapsible{margin-bottom:10px}

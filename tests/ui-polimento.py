@@ -1,4 +1,4 @@
-"""Regressão UX/UI v6.2 — Chromium e API simulada.
+"""Regressão UX/UI v7.0 — Chromium e API simulada.
 Requer: pip install playwright + Chromium no sistema.
 Execute na raiz: python tests/ui-polimento.py
 Testa comportamento da interface, NÃO o hardware físico ou o Express integrado.
@@ -41,7 +41,7 @@ async def verificar():
         for width in SIZES:
             await page.set_viewport_size({"width":width,"height":850})
             collisions=await page.evaluate("""() => [...document.querySelectorAll(".cartao-evento")].some(c=>{
-                const icon=c.querySelector(".icone-grande").getBoundingClientRect();
+                const icon=c.querySelector(".evento-icon").getBoundingClientRect();
                 const overlaps=e=>{const x=e.getBoundingClientRect();return x.right>icon.left+1&&icon.right>x.left+1&&x.bottom>icon.top+1&&icon.bottom>x.top+1};
                 return overlaps(c.querySelector("h2"))||overlaps(c.querySelector(".nota"));
             })""")

@@ -108,19 +108,22 @@
   }
 
   /* ---------- Painel ---------- */
+  // Cartão com três regiões independentes: cabeçalho, corpo e rodapé.
+  // A ilustração NÃO usa posicionamento absoluto; não pode cobrir o texto.
   function cartaoEvento(el, ev, topo, vazioTitulo) {
-    if (!ev) {
-      el.className = 'cartao cartao-evento vazio';
-      el.innerHTML = '<p class="rotulo">' + esc(topo) + '</p><h2>' + esc(vazioTitulo) + '</h2><div class="icone-grande">' + icone('check') + '</div><p class="rodape"><span>Nenhuma ocorrência para mostrar</span></p>';
-      return;
-    }
-    const t = TIPOS_UI[ev.tipo];
-    el.className = 'cartao cartao-evento t-' + ev.tipo;
-    const origem = ev.fonte === 'simulacao' ? 'Evento de demonstração' : ev.fonte === 'wokwi' ? 'Evento do simulador Wokwi' : 'Recebido pelo Arduino';
-    el.innerHTML = '<p class="rotulo">' + esc(topo) + '</p><h2>' + esc(t.titulo) + '</h2>' +
-      '<p class="nota">' + esc(t.desc) + '</p>' +
-      '<div class="icone-grande">' + icone(t.icone) + '</div>' +
-      '<p class="rodape"><span>' + esc(ev.origem) + ' · ' + esc(origem) + '</span><time datetime="' + esc(ev.hora) + '">' + horaCurta(ev.hora) + '</time></p>';
+    const tipo = ev ? TIPOS_UI[ev.tipo] : null;
+    const titulo = tipo ? tipo.titulo : vazioTitulo;
+    const descricao = tipo ? tipo.desc : 'Nenhuma ocorrência para mostrar.';
+    const origem = ev ? (ev.fonte === 'simulacao' ? 'Demonstração' : ev.fonte === 'wokwi' ? 'Simulador Wokwi' : 'Arduino') : '';
+    el.className = 'cartao cartao-evento' + (ev ? ' t-' + ev.tipo : ' vazio');
+    el.innerHTML =
+      '<p class="rotulo">' + esc(topo) + '</p>' +
+      '<div class="evento-body">' +
+        '<div class="evento-copy"><h2>' + esc(titulo) + '</h2><p class="nota">' + esc(descricao) + '</p></div>' +
+        '<span class="evento-icon" aria-hidden="true">' + icone(tipo ? tipo.icone : 'check') + '</span>' +
+      '</div>' +
+      '<div class="rodape"><span>' + (ev ? esc(ev.origem) + ' · ' + esc(origem) : 'Sem registros') + '</span>' +
+      (ev ? '<time datetime="' + esc(ev.hora) + '">' + horaCurta(ev.hora) + '</time>' : '') + '</div>';
   }
 
   function linhasHistorico(lista, colunaFinal) {
@@ -149,11 +152,11 @@
     const lista = [
       ['chip', 'Arduino Uno', arduino],
       ['sensor', 'Sensores configurados', [ativos + ' de 4', ativos ? 'ok' : 'aviso']],
-      ['vibracao', 'Vibração', estado.exibicao ? ['Configurada', 'aviso'] : ['Desabilitada', 'aviso']],
-      ['lampada', 'Iluminação', estado.exibicao ? ['Configurada', 'aviso'] : ['Desabilitada', 'aviso']]
+      ['vibracao', 'Vibração', null],
+      ['lampada', 'Iluminação', null]
     ];
     $('lista-hw').innerHTML = lista.map((i) =>
-      '<li>' + icone(i[0]) + '<span>' + i[1] + '</span><span class="estado ' + i[2][1] + '">' + i[2][0] + '</span></li>'
+      '<li>' + icone(i[0]) + '<span>' + i[1] + '</span>' + (i[2] ? '<span class="estado ' + i[2][1] + '">' + i[2][0] + '</span>' : '') + '</li>'
     ).join('');
   }
 
@@ -462,7 +465,7 @@
     $('sim-run').disabled=!estado.dispositivos.porta.ativo;
     $('sim-hardware-test').title=!ligado?'Disponível somente com Arduino ou Wokwi conectado':!estado.exibicao?'Ative as saídas em Dispositivos para testar':!testeFisicoPossivel?'Não teste saídas durante um alerta crítico real':'Envia TESTE pela comunicação serial (confirme visualmente a resposta)';
     $('status-origem').textContent=modo;
-    $('status-explicacao').textContent=ligado?'A placa informa o estado ao servidor. Confirme LED e motor presencialmente; a telemetria não prova a resposta elétrica.':'Este desenho representa o projeto; simulações atualizam a tela, mas não ligam LEDs ou motores reais.';
+    $('status-explicacao').textContent=ligado?'A placa está conectada. O painel mostra o que o firmware reporta; confirme presencialmente se LED e motor responderam como esperado.':'Você está vendo uma representação digital do circuito. Os testes atualizam a interface, mas não acionam componentes físicos.';
     const ult=eventos[0];
     $('status-ultimo').textContent=ult?TIPOS_UI[ult.tipo].rotulo+' · '+horaCurta(ult.hora):'Nenhum';
     $('arduino-meta').textContent=ligado?'Recebendo dados · '+(hw.porta||modo):fisico||wokwi?'Sem dados da placa':'Pronto para demonstrar';
@@ -471,8 +474,8 @@
     const led=ligado?telem&&diagnostico?.saidas?.led===true:!fisico&&!wokwi&&!!a&&estado.exibicao;
     const motor=ligado?telem&&diagnostico?.saidas?.motor===true:!fisico&&!wokwi&&!!a&&estado.exibicao;
     const incerto=ligado&&!telem;
-    $('led-label').textContent=incerto?'Sem telemetria recente':ligado?(led?'Firmware informa: ligado':'Firmware informa: desligado'):(led?'Prévia visual acesa':'Sem saída física');
-    $('motor-label').textContent=incerto?'Sem telemetria recente':ligado?(motor?'Firmware informa: ligado':'Firmware informa: desligado'):(motor?'Prévia visual ativa':'Sem saída física');
+    $('led-label').textContent=incerto?'Sem retorno recente da placa':ligado?(led?'LED informado como ativo':'LED informado como desligado'):(led?'Prévia visual do alerta ativa':'Sem resposta física');
+    $('motor-label').textContent=incerto?'Sem retorno recente da placa':ligado?(motor?'Vibração informada como ativa':'Vibração informada como desligada'):(motor?'Prévia tátil representada':'Sem resposta física');
     $('sim-live-label').textContent=a?'Evento '+(a.fonte==='simulacao'?'simulado':'recebido'):'Em espera';
     $('sim-live-dot').className=a?'has-event':'';
     $('circuito-svg').classList.toggle('circuit-live',!!led);

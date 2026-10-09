@@ -1,6 +1,6 @@
 {
   "name": "alerta-visual-backend",
-  "version": "6.2.0",
+  "version": "7.0.0",
   "description": "Backend de alertas com Arduino, telemetria e painel responsivo",
   "main": "server.js",
   "scripts": {

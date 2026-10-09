@@ -74,8 +74,9 @@ def html_inlined():
     app=(WEB/'js/app.js').read_text()
     css_v4=(WEB/'css/v4.css').read_text()
     css_v6=(WEB/'css/v6.css').read_text()
-    html=html.replace('<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/v4.css"><link rel="stylesheet" href="css/v6.css">','<style>'+css+'\n'+css_v4+'\n'+css_v6+'</style>')
-    html=html.replace('<script src="js/api.js"></script><script src="js/app.js"></script>',
+    css_final=(WEB/'css/layout-final.css').read_text()
+    html=html.replace('<link rel="stylesheet" href="css/style.css?v=7.0.0"><link rel="stylesheet" href="css/v4.css?v=7.0.0"><link rel="stylesheet" href="css/v6.css?v=7.0.0"><link rel="stylesheet" href="css/layout-final.css?v=7.0.0">','<style>'+css+'\n'+css_v4+'\n'+css_v6+'\n'+css_final+'</style>')
+    html=html.replace('<script src="js/api.js?v=7.0.0"></script><script src="js/app.js?v=7.0.0"></script>',
                       '<script>'+MOCK_JS+'</script><script>'+api+'</script><script>'+app+'</script>')
     return html
 

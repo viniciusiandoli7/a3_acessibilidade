@@ -1,0 +1,118 @@
+/* Layout consolidado v7: correções isoladas e verificadas dos componentes críticos.
+   Não reaproveitar grid-area de títulos e ícones em filhos aninhados. */
+#view-dashboard .cartao-evento {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:flex-start;
+  min-width:0;
+  min-height:310px;
+  gap:0;
+  padding:22px;
+  overflow:hidden;
+}
+#view-dashboard .cartao-evento>.rotulo {
+  display:block;
+  flex:none;
+  grid-area:auto;
+  margin-bottom:19px;
+}
+#view-dashboard .cartao-evento .evento-body {
+  width:100%;
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 76px;
+  gap:17px;
+  align-items:start;
+  margin:0 0 22px;
+}
+#view-dashboard .cartao-evento .evento-copy {
+  display:flex;
+  min-width:0;
+  flex-direction:column;
+  gap:13px;
+  grid-area:auto;
+}
+#view-dashboard .cartao-evento .evento-copy h2 {
+  display:block;
+  grid-area:auto;
+  position:static;
+  z-index:auto;
+  max-width:100%;
+  min-width:0;
+  padding:0;
+  margin:0;
+  font-size:clamp(21px,1.6vw,27px);
+  line-height:1.18;
+  overflow-wrap:break-word;
+}
+#view-dashboard .cartao-evento .evento-copy .nota {
+  display:block;
+  grid-area:auto;
+  position:static;
+  z-index:auto;
+  max-width:100%;
+  padding:0;
+  margin:0;
+  color:#c8d4e3;
+  font-size:12px;
+  line-height:1.56;
+  overflow-wrap:break-word;
+}
+#view-dashboard .cartao-evento .evento-icon {
+  display:grid;
+  place-items:center;
+  width:76px;
+  height:76px;
+  border:1px solid color-mix(in srgb,var(--cor,#7ea8d1) 37%,transparent);
+  border-radius:50%;
+  background:color-mix(in srgb,var(--cor,#7ea8d1) 15%,transparent);
+  color:var(--cor,#8eb0d5);
+  position:static;
+  min-width:0;
+  flex:none;
+}
+#view-dashboard .cartao-evento .evento-icon svg {width:37px;height:37px;stroke-width:1.8}
+#view-dashboard .cartao-evento .rodape {
+  display:flex;
+  grid-area:auto;
+  flex:0 0 auto;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  min-width:0;
+  width:100%;
+  margin: auto 0 0;
+  padding:12px 13px;
+  font-size:11px;
+}
+#view-dashboard .cartao-evento .rodape>span {flex:1 1 120px;min-width:0;overflow-wrap:anywhere}
+#view-dashboard .cartao-evento .rodape time {margin:0 0 0 auto;flex:none}
+/* As informações de equipamentos permanecem dentro do próprio cartão. */
+#view-dashboard .lista-hw{position:relative;min-width:0;overflow:hidden;align-self:stretch}
+#view-dashboard .lista-hw ul{min-width:0;margin:0 0 auto}
+#view-dashboard .lista-hw li{display:grid;grid-template-columns:21px minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0}
+#view-dashboard .lista-hw li>span{position:static;min-width:0;max-width:100%;padding:0;display:block;float:none}
+#view-dashboard .lista-hw li .estado{display:block;position:static;min-width:0;max-width:120px;text-align:right;white-space:normal;overflow-wrap:anywhere}
+#view-dashboard .tabela-cartao{min-width:0;overflow:hidden}
+#view-dashboard .tabela-cartao .rolagem{max-width:100%;overflow:auto}
+#view-dashboard .tabela-cartao table{min-width:450px}
+/* Evitar clipping da linha de estado e cartões com conteúdo excedente. */
+#view-dashboard .grade-painel>*,#view-dashboard .coluna-resumo>*{min-width:0}
+@media(min-width:801px) and (max-width:1400px){
+  #view-dashboard .lista-hw ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 15px}
+}
+@media(max-width:800px){
+  #view-dashboard .cartao-evento{min-height:265px;padding:19px}
+  #view-dashboard .cartao-evento .evento-body{grid-template-columns:minmax(0,1fr) 62px;gap:12px}
+  #view-dashboard .cartao-evento .evento-icon{width:62px;height:62px}
+  #view-dashboard .cartao-evento .evento-icon svg{width:31px;height:31px}
+  #view-dashboard .lista-hw ul{display:block}
+}
+@media(max-width:380px){
+  #view-dashboard .cartao-evento .evento-body{grid-template-columns:minmax(0,1fr) 46px;gap:9px}
+  #view-dashboard .cartao-evento .evento-icon{width:46px;height:46px}
+  #view-dashboard .cartao-evento .evento-icon svg{width:24px;height:24px}
+  #view-dashboard .cartao-evento .evento-copy h2{font-size:20px}
+}
