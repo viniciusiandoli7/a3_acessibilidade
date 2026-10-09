@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 <div align="center">
+=======
+# Alerta Visual — aplicação integrada e apresentação acadêmica
+>>>>>>> 1103737ffb805cc1d7adf90d9f08baa3668e53ea
 
 # 🔔 a3_acessibilidade
 
@@ -131,7 +135,11 @@ Pelo GitHub, use **Code → Download ZIP**, extraia os arquivos e abra um termin
 ### 2. Inicie o servidor
 
 ```bash
+<<<<<<< HEAD
 cd backend
+=======
+cd a3_acessibilidade/backend
+>>>>>>> 1103737ffb805cc1d7adf90d9f08baa3668e53ea
 npm install
 npm start
 ```
