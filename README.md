@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 <div align="center">
-=======
-# Alerta Visual — aplicação integrada e apresentação acadêmica
-
->>>>>>> fc5124cb4ca3eafe9d901ba66ccf2334d71e9c17
 
 # 🔔 a3_acessibilidade
 
@@ -169,6 +164,17 @@ No navegador, acesse:
 | :--- | :---: | :--- |
 | LED RGB (R, G, B) | `D9`, `D10`, `D11` | Usar resistores e/ou drivers adequados. |
 | Motor de vibração | `D5` | Exige transistor/driver e proteção; **não conectar diretamente ao pino**. |
+| Botão de silenciar *(opcional)* | `D7` → GND | Usa o pull-up interno; silencia o alerta direto na placa e avisa o painel. |
+
+### Variáveis de ambiente do servidor
+
+| Variável | Padrão | Para que serve |
+| :--- | :---: | :--- |
+| `PORT` | `3000` | Porta do painel. |
+| `HOST` | `127.0.0.1` | Endereço de escuta. Só altere em rede confiável: não há autenticação. |
+| `SERIAL_PORT` | — | Porta do Arduino (`COM3`, `/dev/ttyACM0`). Sem ela, roda em modo demonstração. |
+| `SIM_TCP_PORT` | — | Habilita a ponte local do Wokwi. |
+| `DATA_DIR` | `backend/data` | Pasta do histórico e das configurações. |
 
 **Para usar o Arduino físico:**
 
@@ -238,7 +244,15 @@ Foram criados testes para as regras do servidor e para o comportamento visual co
 **Backend (sem placa física):**
 
 ```bash
-node tests/backend-smoke.js
+cd backend
+npm install
+npm test
+```
+
+**Interface sem navegador (sobe o servidor com dados temporários e usa o jsdom):**
+
+```bash
+npm run test:ui
 ```
 
 **Frontend (requer Python, Playwright e Chromium instalados):**
@@ -250,7 +264,7 @@ python tests/ui-polimento.py
 
 Os testes visuais cobrem navegação, estados de alerta, interações e diferentes tamanhos de tela. **Os testes do navegador usam uma API simulada em memória**; os testes do servidor são isolados. Portanto, **a execução HTTP completa, Wokwi em execução e o circuito Arduino físico ainda precisam ser validados no ambiente de apresentação**.
 
-Consulte o relatório: [`TESTES_V6_2.md`](TESTES_V6_2.md).
+Resumo do que cada teste cobre está na seção **Refinamentos v7.1** ao final deste arquivo.
 
 ## 📂 Estrutura do repositório
 
@@ -268,8 +282,6 @@ a3_acessibilidade/
 │   └── alerta_visual/        # Firmware do Arduino Uno
 ├── wokwi/                    # Circuito virtual e ponte local
 ├── tests/                    # Testes automatizados e capturas
-├── APRESENTACAO.md           # Roteiro para apresentação
-├── TESTES_V6_2.md            # Registro de validação
 └── README.md
 ```
 
@@ -282,7 +294,6 @@ a3_acessibilidade/
 5. **Arduino:** explicar a bancada e a passagem entre sensor, firmware, servidor e interface.
 6. **Histórico e limites:** conferir o registro e explicar o que ainda depende de validação física.
 
-Há um roteiro mais completo em [`APRESENTACAO.md`](APRESENTACAO.md).
 
 ## 👥 Desenvolvedores
 
@@ -310,3 +321,50 @@ Há um roteiro mais completo em [`APRESENTACAO.md`](APRESENTACAO.md).
 - Remoção dos indicadores redundantes “Configurada” para iluminação/vibração no resumo inicial. Estados físicos confiáveis são exibidos na bancada apenas quando há telemetria.
 - Testes de colisão realizados com alerta de fumaça ativo, além de verificações responsivas em oito páginas.
 - O desenho da bancada permanece **representativo**; para simular a execução eletrônica do firmware utilize Wokwi e para validar hardware use Arduino real.
+
+## 🔧 Refinamentos v7.1
+
+**Correções**
+
+- **Demonstração guiada:** o texto explicativo de cada etapa ficava em branco (campo lido com o nome errado).
+- **Reconexão serial:** falha de abertura e queda da porta podiam agendar duas reconexões ao mesmo tempo, disputando a mesma porta. Agora existe uma única tentativa agendada.
+- **Eventos duplicados:** a vibração e o estroboscópio podem gerar ruído no sensor do próprio canal. Enquanto o alerta desse canal está ativo, novas detecções são tratadas como continuação e não criam registros repetidos nem reiniciam o alerta.
+- **Duração de eventos interrompidos:** um alerta interrompido (servidor reiniciado) aparecia como "Em andamento" para sempre. Agora mostra "—".
+- **README:** removidos marcadores de conflito de merge e links para arquivos inexistentes.
+
+**Segurança e robustez**
+
+- Requisições `POST/PUT/DELETE` e conexões WebSocket vindas de **outros sites** são recusadas (um site aberto na mesma máquina não consegue silenciar alertas).
+- Cabeçalhos de segurança (CSP, `nosniff`, `X-Frame-Options`) e `Cache-Control: no-store` na API.
+- Erros sempre em JSON, sem expor detalhes internos; rota inexistente retorna 404 em JSON.
+- Limite de simulações em sequência (HTTP 429), limite de clientes WebSocket e *heartbeat* para remover conexões mortas.
+- **Encerramento limpo** (`Ctrl+C`): envia `PARAR` ao Arduino e grava o alerta em andamento como "Interrompido".
+- Histórico corrompido é copiado para `eventos.json.corrompido-<data>` antes de começar um novo.
+- Mensagem clara se a porta já estiver em uso.
+
+**Funcionalidades**
+
+- **Botão físico de silenciar** (opcional, `D7`): para o LED/vibração na hora e silencia também no painel.
+- **Filtro de origem no relatório** (todas / somente Arduino e Wokwi / somente simulações) e marcação "simulação" nas tabelas, para não misturar demonstração com dados reais. O CSV passou a usar nomes legíveis e a data no nome do arquivo.
+- Aviso quando a tabela mostra só os 120 registros mais recentes.
+- Título da aba sinaliza alerta ativo (útil com o painel em segundo plano).
+- Atualizações do painel agrupadas (várias mensagens seguidas geram uma só recarga) e sincronização ao voltar para a aba.
+- Requisições com prazo (8–10 s), mensagens de erro específicas e reconexão do WebSocket progressiva.
+
+**Acessibilidade**
+
+- Com o alerta em tela cheia, o restante da página fica inerte (`inert`): o foco do teclado e o leitor de tela não escapam para o fundo.
+- Anúncio para leitor de tela é refeito a cada alerta (antes, um alerta igual ao anterior não era anunciado de novo).
+- Selo de alerta no menu ganhou texto para leitor de tela; avisos ficam visíveis por 6 s.
+
+**Firmware**
+
+- Leitura descartada ao trocar de canal analógico (reduz interferência entre sensores).
+- Comandos serial maiores que o buffer são descartados, em vez de executados cortados.
+
+**Testes**
+
+- `npm test`: regras do servidor, incluindo os casos acima (deduplicação, botão físico, filtro de origem, CSRF/CSP, erros em JSON, histórico corrompido).
+- `npm run test:ui`: fluxo completo do painel em jsdom (guia, alerta em tela cheia, inert, relatórios, filtros) com o servidor real.
+
+> **Limites desta revisão:** o CSS não foi alterado, e não havia navegador nem placa disponíveis. Por isso `ui-playwright.py`, o Wokwi e o firmware em hardware real **precisam ser validados por vocês**. O sketch teve apenas a sintaxe C++ verificada.

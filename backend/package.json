@@ -1,15 +1,22 @@
 {
   "name": "alerta-visual-backend",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "description": "Backend de alertas com Arduino, telemetria e painel responsivo",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node ../tests/backend-smoke.js"
+    "test": "node ../tests/backend-smoke.js",
+    "test:ui": "node ../tests/ui-smoke.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "serialport": "^12.0.0",
     "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
   }
 }

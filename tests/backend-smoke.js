@@ -12,24 +12,27 @@ function criarInstancia(env={}, requestMock=async()=>({ok:true,status:200,json:a
   const pasta=path.join(raiz,'inst-'+Math.random().toString(36).slice(2),'backend');
   fs.mkdirSync(pasta,{recursive:true});
   const routes={};
+  const middlewares=[];
   function express(){
-    const app={use:()=>{}};
+    const app={use:(...a)=>{const fn=a[a.length-1];if(typeof fn==='function')middlewares.push({caminho:typeof a[0]==='string'?a[0]:null,fn});}};
     for(const metodo of ['get','post','put','delete'])app[metodo]=(url,fn)=>{routes[metodo+' '+url]=fn;};
     return app;
   }
   express.json=()=>()=>{};express.static=()=>()=>{};
   class WebSocketServer{constructor(){this.clients=new Set();}on(){}}
   const requireFake=mod=>mod==='express'?express:mod==='ws'?{WebSocketServer}:mod==='http'?{createServer:()=>({listen:(port,host,fn)=>fn()})}:require(mod);
-  const sandbox={require:requireFake,__dirname:pasta,console,setTimeout:()=>1,clearTimeout:()=>{},AbortSignal,fetch:requestMock,process:{env:{PORT:'3000',...env}}};
+  const sandbox={require:requireFake,URL,__dirname:pasta,console,setTimeout:()=>1,clearTimeout:()=>{},AbortSignal,fetch:requestMock,process:{env:{PORT:'3000',...env}}};
   vm.createContext(sandbox);
   vm.runInContext(codigo+`
 globalThis.__injetar=tratarLinhaSerial;
     globalThis.__marcarConexao=(valor)=>{hardware.conectado=valor;hardware.modo="serial"};
     globalThis.__detectar=processarDeteccao;
     globalThis.__limparCooldown=()=>{ultimoPorDispositivo.fumaca=0};
+    globalThis.__resetSimulacao=()=>{ultimaSimulacao=0};
     globalThis.__simularPonte=()=>{hardware.modo='wokwi';hardware.conectado=true;globalThis._comandos=[];simSocket={destroyed:false,write:(linha)=>globalThis._comandos.push(linha)}};
     globalThis.__comandos=()=>globalThis._comandos;`,sandbox,{filename:'server.js'});
-  const api=async(method,url,body={},query={})=>{
+  const api=async(method,url,body={},query={},opcoes={})=>{
+    if(url==='/api/simular'&&!opcoes.manterLimite)sandbox.__resetSimulacao();
     const rota=method==='put'&&url.startsWith('/api/dispositivos/')?'/api/dispositivos/:id':url;
     const fn=routes[method+' '+rota];assert.ok(fn,'Rota ausente '+method+' '+url);
     let status=200,resultado=null;
@@ -38,7 +41,7 @@ globalThis.__injetar=tratarLinhaSerial;
     await fn(req,res);
     return {status,resultado};
   };
-  return {api,injetar:sandbox.__injetar,marcarConexao:sandbox.__marcarConexao,detectar:sandbox.__detectar,limparCooldown:sandbox.__limparCooldown,simularPonte:sandbox.__simularPonte,comandos:sandbox.__comandos,pasta};
+  return {api,injetar:sandbox.__injetar,marcarConexao:sandbox.__marcarConexao,detectar:sandbox.__detectar,limparCooldown:sandbox.__limparCooldown,simularPonte:sandbox.__simularPonte,comandos:sandbox.__comandos,pasta,middlewares};
 }
 (async()=>{
   const t=criarInstancia();
@@ -122,4 +125,61 @@ globalThis.__injetar=tratarLinhaSerial;
   assert.equal(fisicoDepois.tipo,'fumaca');
   assert.equal(circuito.comandos().length,cmdsAntes,'Teste virtual não altera comando físico em andamento');
   console.log('OK segurança de saídas: teste simulado não substitui alerta físico nem envia PARAR.');
+
+  /* ===== Refinamentos v7.1 ===== */
+  // 1) Continuação do mesmo canal durante o próprio alerta não gera evento duplicado (ruído do atuador no sensor).
+  const rep=criarInstancia(); rep.marcarConexao(true);
+  rep.limparCooldown();
+  const primeiro=rep.detectar('fumaca',700,false);
+  assert.ok(primeiro,'Primeira detecção cria evento');
+  rep.limparCooldown();
+  assert.equal(rep.detectar('fumaca',700,false),null,'Reaparição no mesmo canal durante o alerta é continuação');
+  assert.equal((await rep.api('get','/api/eventos')).resultado.length,1,'Histórico sem duplicatas');
+  // 2) Botão físico silencia o alerta e marca como silenciado.
+  rep.injetar('SILENCIAR');
+  assert.equal((await rep.api('get','/api/estado')).resultado.alerta,null,'SILENCIAR encerra o alerta');
+  assert.equal((await rep.api('get','/api/eventos')).resultado[0].status,'atendido');
+  // 3) Filtro de origem dos dados no relatório.
+  await rep.api('post','/api/simular',{dispositivo:'porta'});
+  const reais=(await rep.api('get','/api/relatorio',{}, {periodo:'todos',fonte:'reais'})).resultado.eventos;
+  const simul=(await rep.api('get','/api/relatorio',{}, {periodo:'todos',fonte:'simulacao'})).resultado.eventos;
+  const todas=(await rep.api('get','/api/relatorio',{}, {periodo:'todos'})).resultado.eventos;
+  assert.equal(reais.length,1);assert.equal(reais[0].fonte,'arduino');
+  assert.equal(simul.length,1);assert.equal(simul[0].fonte,'simulacao');
+  assert.equal(todas.length,2);
+  assert.equal((await rep.api('get','/api/relatorio',{}, {fonte:'xyz'})).status,400);
+  // 4) Limite de simulações em sequência.
+  await rep.api('post','/api/alerta/silenciar');
+  assert.equal((await rep.api('post','/api/simular',{dispositivo:'bebe'})).status,200);
+  assert.equal((await rep.api('post','/api/simular',{dispositivo:'bebe'},{},{manterLimite:true})).status,429);
+  // 5) Proteção contra requisições de outros sites e cabeçalhos de segurança.
+  const protecao=rep.middlewares.find(m=>!m.caminho&&m.fn.length===3).fn;
+  const chamar=(req)=>{let st=200,corpo=null,seguiu=false;const cab={};
+    const res={setHeader(k,v){cab[k]=v},status(c){st=c;return this},json(o){corpo=o}};
+    protecao(req,res,()=>{seguiu=true});return {st,corpo,seguiu,cab};};
+  const host='localhost:3000';
+  assert.equal(chamar({method:'POST',path:'/api/alerta/silenciar',headers:{origin:'https://site-externo.example',host}}).st,403);
+  assert.equal(chamar({method:'DELETE',path:'/api/eventos/simulacoes',headers:{origin:'null',host}}).st,403);
+  assert.equal(chamar({method:'POST',path:'/api/alerta/silenciar',headers:{origin:'http://localhost:3000',host}}).seguiu,true);
+  assert.equal(chamar({method:'POST',path:'/api/alerta/silenciar',headers:{host}}).seguiu,true,'Clientes sem Origin (não navegador) são aceitos');
+  assert.equal(chamar({method:'GET',path:'/api/estado',headers:{origin:'https://outro.example',host}}).seguiu,true,'Leitura não é bloqueada por esta regra');
+  const ok=chamar({method:'GET',path:'/api/estado',headers:{host}});
+  assert.equal(ok.cab['X-Content-Type-Options'],'nosniff');assert.equal(ok.cab['Cache-Control'],'no-store');
+  assert.match(ok.cab['Content-Security-Policy'],/script-src 'self'/);
+  // 6) Erros sempre em JSON, sem expor detalhes internos.
+  const tratadorErro=rep.middlewares.find(m=>m.fn.length===4).fn;
+  const erro=(err)=>{let st=0,corpo=null;tratadorErro(err,{},{headersSent:false,status(c){st=c;return this},json(o){corpo=o}},()=>{});return {st,corpo};};
+  assert.equal(erro({status:400}).st,400);assert.match(erro({status:400}).corpo.erro,/JSON/);
+  assert.equal(erro(new Error('segredo interno /etc/passwd')).st,500);
+  assert.ok(!JSON.stringify(erro(new Error('segredo interno')).corpo).includes('segredo'));
+  const naoEncontrada=rep.middlewares.find(m=>m.caminho==='/api').fn;
+  let st404=0;naoEncontrada({}, {status(c){st404=c;return this},json(){}});assert.equal(st404,404);
+  // 7) Histórico corrompido é preservado em cópia, não sobrescrito silenciosamente.
+  const pastaCorrompida=path.join(raiz,'corrompida');fs.mkdirSync(path.join(pastaCorrompida,'backend','data'),{recursive:true});
+  fs.writeFileSync(path.join(pastaCorrompida,'backend','data','eventos.json'),'{ isto não é json');
+  const sandboxCorr={require:(m)=>m==='express'?Object.assign(()=>({use(){},get(){},post(){},put(){},delete(){}}),{json:()=>()=>{},static:()=>()=>{}}):m==='ws'?{WebSocketServer:class{constructor(){this.clients=new Set()}on(){}}}:m==='http'?{createServer:()=>({listen:(a,b,fn)=>fn()})}:require(m),
+    URL,__dirname:path.join(pastaCorrompida,'backend'),console:{log(){},warn(){}},setTimeout:()=>1,clearTimeout:()=>{},process:{env:{}}};
+  vm.createContext(sandboxCorr);vm.runInContext(codigo,sandboxCorr,{filename:'server.js'});
+  assert.ok(fs.readdirSync(path.join(pastaCorrompida,'backend','data')).some(n=>n.startsWith('eventos.json.corrompido-')),'Cópia do arquivo corrompido criada');
+  console.log('OK refinamentos v7.1: deduplicação, botão físico, filtro de origem, limite de simulação, CSRF/CSP, erros em JSON e histórico corrompido.');
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>fs.rmSync(raiz,{recursive:true,force:true}));

@@ -77,7 +77,11 @@
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hora = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { hour12: false });
   const horaCurta = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const duracao = (s) => (s == null ? 'Em andamento' : s < 60 ? s + ' s' : Math.round(s / 60) + ' min');
+  // Sem duração e já finalizado (ex.: servidor reiniciado durante o alerta) = desconhecida, não "em andamento".
+  const duracao = (s, status) => (s == null ? (status === 'pendente' ? 'Em andamento' : '—') : s < 60 ? s + ' s' : Math.round(s / 60) + ' min');
+  const NOMES_STATUS = { atendido: 'Silenciado', pendente: 'Em andamento', encerrado: 'Encerrado', interrompido: 'Interrompido', silenciado: 'Silenciado' };
+  const ROTULOS_FONTE = { simulacao: 'Simulação', wokwi: 'Wokwi', arduino: 'Arduino' };
+  const notaFonte = (e) => (e.fonte === 'simulacao' ? ' <small class="nota">· simulação</small>' : '');
   const etiquetaTipo = (tipo) =>
     '<span class="etiqueta-tipo t-' + tipo + '">' + icone(TIPOS_UI[tipo].icone) + esc(TIPOS_UI[tipo].rotulo) + '</span>';
 
@@ -87,7 +91,24 @@
     el.textContent = texto;
     el.hidden = false;
     clearTimeout(temporizadorAviso);
-    temporizadorAviso = setTimeout(() => { el.hidden = true; }, 4000);
+    temporizadorAviso = setTimeout(() => { el.hidden = true; }, 6000);
+  }
+  // Região "assertive" só anuncia quando o texto MUDA: limpar antes garante nova leitura em alertas repetidos.
+  function anunciar(texto) {
+    const el = $('anuncio');
+    el.textContent = '';
+    setTimeout(() => { el.textContent = texto; }, 60);
+  }
+  let tituloBase = 'Alerta Visual';
+  // Quem deixa o painel em outra aba vê o aviso no título da aba.
+  function atualizarTitulo() {
+    document.title = (estado && estado.alerta ? '⚠ Alerta ativo · ' : '') + tituloBase;
+  }
+  let temporizadorAtualizacao = null;
+  // Rajadas de eventos (WebSocket) viram uma única atualização, em vez de 4 requisições por mensagem.
+  function agendarAtualizacao() {
+    clearTimeout(temporizadorAtualizacao);
+    temporizadorAtualizacao = setTimeout(atualizarTudo, 120);
   }
 
   /* ---------- Navegação ---------- */
@@ -102,7 +123,8 @@
     $('titulo-pagina').textContent = VIEWS[nome];
     $('subtitulo-pagina').textContent = nome === 'dashboard' ? 'SEU ESPAÇO, EM TEMPO REAL' : nome === 'prototipo' ? 'HARDWARE & SIMULAÇÃO' : nome === 'como-funciona' ? 'DOCUMENTAÇÃO DO PROJETO' : 'SISTEMA DE ALERTA VISUAL';
     $('descricao-pagina').textContent = DESCRICOES[nome];
-    document.title = VIEWS[nome] + ' | Alerta Visual';
+    tituloBase = VIEWS[nome] + ' | Alerta Visual';
+    atualizarTitulo();
     if (moverFoco) $('conteudo').focus();
     window.scrollTo(0, 0);
   }
@@ -129,7 +151,7 @@
   function linhasHistorico(lista, colunaFinal) {
     if (!lista.length) return '<tr class="vazio-linha"><td colspan="4">Nenhum evento registrado ainda.</td></tr>';
     return lista.map((e) =>
-      '<tr><td class="hora">' + hora(e.hora) + '</td><td>' + etiquetaTipo(e.tipo) + '</td><td>' + esc(e.origem) + '</td><td>' + colunaFinal(e) + '</td></tr>'
+      '<tr><td class="hora">' + hora(e.hora) + '</td><td>' + etiquetaTipo(e.tipo) + '</td><td>' + esc(e.origem) + notaFonte(e) + '</td><td>' + colunaFinal(e) + '</td></tr>'
     ).join('');
   }
 
@@ -145,7 +167,7 @@
     hwResumo.textContent = estado.hardware.modo === 'simulado' ? 'Demonstração' : estado.hardware.conectado ? 'Conectado' : 'Sem conexão';
     hwResumo.className = 'status-pill ' + (estado.hardware.modo === 'simulado' ? 'demo' : estado.hardware.conectado ? '' : 'erro');
 
-    $('tbody-dash').innerHTML = linhasHistorico(eventos.slice(0, 10), (e) => duracao(e.duracao));
+    $('tbody-dash').innerHTML = linhasHistorico(eventos.slice(0, 10), (e) => duracao(e.duracao, e.status));
 
     const hw = estado.hardware;
     const arduino = hw.modo === 'simulado' ? ['Simulação', 'aviso'] : hw.modo === 'wokwi' ? [hw.conectado ? 'Wokwi ativo' : 'Wokwi desconectado', hw.conectado ? 'ok' : 'aviso'] : hw.conectado ? ['Conectado', 'ok'] : ['Desconectado', 'aviso'];
@@ -237,12 +259,12 @@
         if (alvo.dataset.acao === 'sens') await Api.atualizarDispositivo(id, { sensibilidade: Number(alvo.value) });
         if (alvo.dataset.acao === 'cor') await Api.atualizarDispositivo(id, { cor: alvo.value });
         await atualizarTudo();
-      } catch (_) { aviso('Não foi possível salvar. Verifique o servidor.'); await atualizarTudo(); }
+      } catch (err) { aviso(err.message || 'Não foi possível salvar. Verifique o servidor.'); await atualizarTudo(); }
     });
     $('painel-saidas').addEventListener('change', async (e) => {
       if (e.target.id !== 'chk-exib') return;
       try { await Api.atualizarExibicao(e.target.checked); await atualizarTudo(); }
-      catch (_) { aviso('Não foi possível alterar as saídas.'); await atualizarTudo(); }
+      catch (err) { aviso(err.message || 'Não foi possível alterar as saídas.'); await atualizarTudo(); }
     });
     $('painel-saidas').addEventListener('click', async (e) => {
       if (!e.target.closest('#btn-simular')) return;
@@ -306,9 +328,10 @@
 
   /* ---------- Relatórios ---------- */
   function linhasRelatorio(lista) {
-    const nomes = {atendido:'Silenciado',pendente:'Em andamento',encerrado:'Encerrado',interrompido:'Interrompido',silenciado:'Silenciado'};
+    const nomes = NOMES_STATUS;
     if (!lista.length) return '<tr class="vazio-linha"><td colspan="6">Não há registros para este filtro.</td></tr>';
-    return lista.slice(0,120).map(e=>'<tr><td class="hora">'+new Date(e.hora).toLocaleString('pt-BR')+'</td><td>'+etiquetaTipo(e.tipo)+'</td><td>'+esc(e.origem)+'</td><td>'+ (Number.isFinite(e.db)?e.db+'*':'—') +'</td><td>'+duracao(e.duracao)+'</td><td><span class="status '+esc(e.status)+'">'+(nomes[e.status]||'Registrado')+'</span></td></tr>').join('');
+    const aviso120 = lista.length > 120 ? '<tr class="vazio-linha"><td colspan="6">Mostrando os 120 registros mais recentes de ' + lista.length + '. Exporte o CSV para ver todos.</td></tr>' : '';
+    return lista.slice(0,120).map(e=>'<tr><td class="hora">'+new Date(e.hora).toLocaleString('pt-BR')+'</td><td>'+etiquetaTipo(e.tipo)+'</td><td>'+esc(e.origem)+notaFonte(e)+'</td><td>'+ (Number.isFinite(e.db)?e.db+'*':'—') +'</td><td>'+duracao(e.duracao,e.status)+'</td><td><span class="status '+esc(e.status)+'">'+(nomes[e.status]||'Registrado')+'</span></td></tr>').join('') + aviso120;
   }
   function renderRelatorios() {
     const lista = relatorio.eventos || [];
@@ -342,12 +365,13 @@
   }
   function exportarCsv() {
     const lista=(relatorio.eventos||[]).filter(e=>$('tipo-rel').value==='todos'||e.tipo===$('tipo-rel').value);
+    if(!lista.length){aviso('Não há registros para exportar com este filtro.');return;}
     const seguro = x => { let v=String(x == null ? '' : x).replace(/^[\s]*[=+@-]/, m => String.fromCharCode(39)+m); return '"'+v.replace(/"/g,'""')+'"'; };
     const cab=['Data/hora','Evento','Ambiente','Indice visual estimado (nao calibrado)','Duracao (s)','Situacao','Origem dos dados'];
-    const rows=lista.map(e=>[new Date(e.hora).toLocaleString('pt-BR'), TIPOS_UI[e.tipo]?.rotulo||e.tipo,e.origem,e.db,e.duracao,e.status,e.fonte]);
+    const rows=lista.map(e=>[new Date(e.hora).toLocaleString('pt-BR'), TIPOS_UI[e.tipo]?.rotulo||e.tipo,e.origem,e.db,e.duracao,NOMES_STATUS[e.status]||e.status,ROTULOS_FONTE[e.fonte]||e.fonte]);
     const csv='\uFEFF'+[cab,...rows].map(row=>row.map(seguro).join(';')).join('\r\n');
     const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-    const a=document.createElement('a');a.href=url;a.download='alerta-visual-relatorio.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const a=document.createElement('a');a.href=url;a.download='alerta-visual-relatorio-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     aviso('Relatório CSV preparado para download.');
   }
 
@@ -362,14 +386,20 @@
     $('alerta-desc').textContent = a.origem + ' • ' + horaCurta(a.hora) + ' — ' + t.desc;
     if (tela.hidden) focoAnterior = document.activeElement;
     tela.hidden = false;
+    definirFundoInerte(true);
     $('alerta-silenciar').focus();
-    $('anuncio').textContent = t.titulo + '. ' + a.origem + '.';
+    anunciar(t.titulo + '. ' + a.origem + '.' + (a.fonte === 'simulacao' ? ' Evento de demonstração.' : ''));
     if (navigator.vibrate) navigator.vibrate(a.critico ? [300, 100, 300, 100, 300, 100, 300] : [400, 200, 400]);
+  }
+  // aria-modal não impede o leitor de tela/Tab de alcançar o fundo em todos os navegadores; "inert" impede.
+  function definirFundoInerte(ligado) {
+    document.querySelectorAll('.app, .pular-link').forEach((el) => { el.inert = ligado; });
   }
   function esconderAlerta() {
     const tela = $('alerta-tela');
     if (tela.hidden) return;
     tela.hidden = true;
+    definirFundoInerte(false);
     if (navigator.vibrate) navigator.vibrate(0);
     if (focoAnterior && document.contains(focoAnterior)) focoAnterior.focus();
   }
@@ -571,7 +601,7 @@
   function renderGuia(){
     const g=GUIA[etapaGuia];
     $('guia-titulo').textContent=g.titulo;$('guia-descricao').textContent=g.sub;
-    $('guia-explicacao').textContent=g.text;$('guia-categoria').textContent=g.categoria;
+    $('guia-explicacao').textContent=g.texto;$('guia-categoria').textContent=g.categoria;
     $('guia-ilustracao').textContent=g.icone;
     $('guia-etapa').textContent=(etapaGuia+1)+' de '+GUIA.length;
     $('guia-progresso').querySelector('span').style.width=((etapaGuia+1)/GUIA.length*100)+'%';
@@ -668,10 +698,10 @@
   async function atualizarTudo() {
     const atualizacao = ++numeroAtualizacao;
     try {
-      const periodo = $('periodo-rel').value;
-      const [e, ev, st, report] = await Promise.all([Api.estado(), Api.eventos(200), Api.estatisticas(), Api.relatorio(periodo)]);
+      const periodo = $('periodo-rel').value, fonte = $('fonte-rel').value;
+      const [e, ev, st, report] = await Promise.all([Api.estado(), Api.eventos(200), Api.estatisticas(), Api.relatorio(periodo, fonte)]);
       // Uma resposta antiga nunca pode sobrescrever o estado de uma atualização recente.
-      if (atualizacao !== numeroAtualizacao || periodo !== $('periodo-rel').value) return;
+      if (atualizacao !== numeroAtualizacao || periodo !== $('periodo-rel').value || fonte !== $('fonte-rel').value) return;
       estado = e; eventos = ev; stats = st; relatorio = report;
       pintarConexao();
       renderDashboard();
@@ -685,8 +715,9 @@
       const indicador = $('contagem-nav');
       indicador.hidden = !estado.alerta; 
       if (!estado.alerta) esconderAlerta();
-    } catch (_) {
-      if (atualizacao === numeroAtualizacao) aviso('Não foi possível carregar os dados do servidor.');
+      atualizarTitulo();
+    } catch (err) {
+      if (atualizacao === numeroAtualizacao) aviso(err.message || 'Não foi possível carregar os dados do servidor.');
     }
   }
 
@@ -695,12 +726,12 @@
       registrarMonitor('Canal '+m.evento.dispositivo+': '+TIPOS_UI[m.evento.tipo].rotulo+' ('+(m.evento.fonte==='simulacao'?'simulação':m.evento.fonte)+').',m.evento.tipo==='fumaca'?'danger':'ok');
       if (m.alertar) mostrarAlerta(m.alerta);
       else aviso('Novo evento registrado: ' + TIPOS_UI[m.evento.tipo].titulo);
-      atualizarTudo();
+      agendarAtualizacao();
     } else if (m.tipo === 'alerta_fim') {
       registrarMonitor('Alerta encerrado ('+m.motivo+').','info');
       esconderAlerta();
       aviso(m.motivo === 'silenciado' ? 'Alerta silenciado.' : 'Alerta encerrado.');
-      atualizarTudo();
+      agendarAtualizacao();
     } else if (m.tipo === 'hardware') {
       registrarMonitor('Estado de hardware atualizado.','info');
       if (estado) { estado.hardware = m.hardware; pintarConexao(); renderPrototipo(); renderComoFunciona(); }
@@ -710,7 +741,7 @@
       diagnostico=m.diagnostico;
       if (estado) { renderPrototipo(); renderComoFunciona(); }
     } else {
-      atualizarTudo();
+      agendarAtualizacao();
     }
   }
 
@@ -719,6 +750,9 @@
     window.addEventListener('hashchange', () => irPara(true));
     irPara(false);
     $('periodo-rel').addEventListener('change', atualizarTudo);
+    $('fonte-rel').addEventListener('change', atualizarTudo);
+    // Aba em segundo plano pode ter perdido mensagens: ao voltar, sincroniza.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) agendarAtualizacao(); });
     $('tipo-rel').addEventListener('change', renderRelatorios);
     $('btn-exportar').addEventListener('click', exportarCsv);
     $('btn-limpar-simulacoes').addEventListener('click', async () => {

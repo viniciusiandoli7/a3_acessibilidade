@@ -14,7 +14,7 @@ const net = require('net');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const SERIAL_PORT = process.env.SERIAL_PORT || '';
 // Ponte opcional: Wokwi VS Code -> script Python -> socket TCP local -> backend
 const SIM_TCP_PORT = process.env.SIM_TCP_PORT ? Number(process.env.SIM_TCP_PORT) : 0;
@@ -22,7 +22,8 @@ if (SIM_TCP_PORT && (!Number.isInteger(SIM_TCP_PORT) || SIM_TCP_PORT < 1024 || S
   throw new Error('SIM_TCP_PORT precisa ser uma porta entre 1024 e 65535');
 }
 const BAUD = 9600;
-const DATA_DIR = path.join(__dirname, 'data');
+// DATA_DIR permite apontar os dados para outra pasta (usado pelos testes para não misturar com o histórico real).
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'eventos.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const HOST = process.env.HOST || '127.0.0.1';
@@ -66,6 +67,8 @@ let hardware = {
 };
 let serial = null;
 let simSocket = null;
+let encerrando = false;
+let ultimaSimulacao = 0;
 
 
 /* ---------- Persistência ---------- */
@@ -81,6 +84,8 @@ function carregarEventos() {
     }
   } catch (e) {
     console.warn('Não foi possível ler o histórico:', e.message);
+    // Preserva o arquivo problemático para recuperação manual, em vez de sobrescrevê-lo no próximo evento.
+    try { fs.copyFileSync(DATA_FILE, DATA_FILE + '.corrompido-' + Date.now()); } catch (_) { /* sem cópia possível */ }
     eventos = [];
   }
 }
@@ -123,13 +128,37 @@ function salvarConfig() {
 /* ---------- WebSocket ---------- */
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const MAX_CLIENTES_WS = 20;
+// Somente páginas servidas por este mesmo servidor podem abrir o WebSocket (evita sites externos espionando o painel).
+const origemPermitida = (origin, host) => {
+  if (!origin) return true; // clientes que não são navegadores (testes, curl)
+  try { return new URL(origin).host === host; } catch (_) { return false; }
+};
+const wss = new WebSocketServer({
+  server, path: '/ws',
+  verifyClient: (info) => origemPermitida(info.origin, info.req.headers.host)
+});
 
 function transmitir(mensagem) {
   const texto = JSON.stringify(mensagem);
   wss.clients.forEach((c) => { if (c.readyState === 1) c.send(texto); });
 }
-wss.on('connection', (ws) => ws.send(JSON.stringify({ tipo: 'estado' })));
+wss.on('connection', (ws) => {
+  if (wss.clients.size > MAX_CLIENTES_WS) { ws.close(1013, 'Muitos clientes conectados'); return; }
+  ws.vivo = true;
+  ws.on('pong', () => { ws.vivo = true; });
+  ws.on('error', () => {});
+  ws.send(JSON.stringify({ tipo: 'estado' }));
+});
+// Heartbeat: remove conexões "fantasma" (aba fechada sem aviso, rede caiu).
+const heartbeat = typeof setInterval === 'function' ? setInterval(() => {
+  wss.clients.forEach((c) => {
+    if (c.vivo === false) { c.terminate(); return; }
+    c.vivo = false;
+    try { c.ping(); } catch (_) { /* ignorado */ }
+  });
+}, 30000) : null;
+if (heartbeat && heartbeat.unref) heartbeat.unref();
 
 /* ---------- Arduino ---------- */
 function limparTelemetria() {
@@ -181,35 +210,44 @@ function iniciarSerial() {
   }
   let SerialPort, ReadlineParser;
   try {
-    ({ SerialPort } = require('serialport'));
-    ({ ReadlineParser } = require('@serialport/parser-readline'));
+    ({ SerialPort, ReadlineParser } = require('serialport'));
+    if (!ReadlineParser) ({ ReadlineParser } = require('@serialport/parser-readline'));
   } catch (e) {
     console.warn('Pacote serialport indisponível. Rodando em simulação.');
     hardware.modo = 'simulado';
     return;
   }
+  // Falha de abertura e evento 'close' podem ocorrer juntos: só pode existir UMA tentativa de reconexão agendada,
+  // senão duas instâncias disputariam a mesma porta.
+  let reconectando = null;
+  const agendarReconexao = () => {
+    if (reconectando || encerrando) return;
+    reconectando = setTimeout(() => { reconectando = null; abrir(); }, 5000);
+  };
   const abrir = () => {
-    serial = new SerialPort({ path: SERIAL_PORT, baudRate: BAUD }, (err) => {
+    const porta = new SerialPort({ path: SERIAL_PORT, baudRate: BAUD }, (err) => {
       if (err) {
         console.warn('Falha ao abrir', SERIAL_PORT, '-', err.message);
         hardware.conectado = false;
-        setTimeout(abrir, 5000);
+        agendarReconexao();
       }
     });
-    const parser = serial.pipe(new ReadlineParser({ delimiter: '\n' }));
-    serial.on('open', () => {
+    serial = porta;
+    const parser = porta.pipe(new ReadlineParser({ delimiter: '\n' }));
+    porta.on('open', () => {
       console.log('Arduino conectado em', SERIAL_PORT);
       hardware.conectado = true;
       transmitir({ tipo: 'estado' });
       setTimeout(sincronizarHardware, 2500); // o Uno reinicia ao abrir a serial
     });
-    serial.on('close', () => {
+    porta.on('close', () => {
+      if (serial !== porta) return;
       hardware.conectado = false;
       limparTelemetria();
       transmitir({ tipo: 'estado' });
-      setTimeout(abrir, 5000);
+      agendarReconexao();
     });
-    serial.on('error', (e) => console.warn('Erro serial:', e.message));
+    porta.on('error', (e) => console.warn('Erro serial:', e.message));
     parser.on('data', (linha) => tratarLinhaSerial(String(linha).trim()));
   };
   abrir();
@@ -278,6 +316,11 @@ function tratarLinhaSerial(linha) {
       hardware.ultimaMensagem = instanteLeituras;
       transmitir({tipo:'telemetria',diagnostico:estadoDiagnostico()});
     }
+  } else if (partes[0] === 'SILENCIAR') {
+    // Botão físico do Arduino: permite silenciar mesmo sem acesso ao navegador.
+    if (alerta) {
+      registrarSilenciamentoFisico();
+    }
   } else if (partes[0] === 'EVT') {
     const canal = parseInt(partes[1], 10);
     const pico = parseInt(partes[2], 10) || 0;
@@ -291,12 +334,23 @@ function picoParaDb(pico) {
   return Math.round(40 + (Math.min(pico, 1023) / 1023) * 60); // estimativa
 }
 
+function registrarSilenciamentoFisico() {
+  encerrarAlerta('silenciado');
+  transmitir({ tipo: 'estado' });
+}
+
 function processarDeteccao(dispositivoId, pico, forcar) {
   const d = estado.dispositivos[dispositivoId];
   if (!d) return null;
   if (!d.ativo && !forcar) return null;
   const agora = Date.now();
   if (!forcar && agora - (ultimoPorDispositivo[dispositivoId] || 0) < COOLDOWN_MS) return null;
+  // O próprio atuador (vibração/estroboscópio) pode gerar ruído no sensor do mesmo canal.
+  // Enquanto o alerta desse canal estiver ativo, novas detecções são continuação: não viram eventos duplicados.
+  if (!forcar && alerta && alerta.dispositivo === dispositivoId && alerta.fonte !== 'simulacao') {
+    ultimoPorDispositivo[dispositivoId] = agora;
+    return null;
+  }
   ultimoPorDispositivo[dispositivoId] = agora;
 
   const tipo = TIPOS[d.tipo];
@@ -420,6 +474,22 @@ function estatisticas() {
 }
 
 /* ---------- API REST ---------- */
+// Cabeçalhos de segurança e proteção contra requisições vindas de outros sites (CSRF):
+// um site qualquer aberto no mesmo navegador não pode silenciar alertas nem alterar configurações.
+function protecao(req, res, next) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+    "connect-src 'self' ws: wss:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+  if (req.path && req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !origemPermitida(req.headers.origin, req.headers.host)) {
+    return res.status(403).json({ erro: 'Origem não permitida' });
+  }
+  next();
+}
+app.use(protecao);
 app.use(express.json({ limit:'32kb' }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
@@ -466,17 +536,23 @@ app.get('/api/diagnostico', (req,res) => res.json(estadoDiagnostico()));
 app.get('/api/relatorio', (req, res) => {
   const periodo = String(req.query.periodo || '7d');
   if (!['hoje','7d','30d','todos'].includes(periodo)) return res.status(400).json({ erro:'Período inválido' });
+  const fonte = String(req.query.fonte || 'todas');
+  if (!['todas','reais','simulacao'].includes(fonte)) return res.status(400).json({ erro:'Origem de dados inválida' });
   const agora = new Date();
   let comeco = 0;
   if (periodo === 'hoje') comeco = new Date(agora.getFullYear(),agora.getMonth(),agora.getDate()).getTime();
   if (periodo === '7d' || periodo === '30d') comeco = Date.now() - (periodo === '7d' ? 7 : 30)*86400000;
-  res.json({ periodo, eventos: eventos.filter(e => new Date(e.hora).getTime() >= comeco).slice().reverse() });
+  const porFonte = (e) => fonte === 'todas' || (fonte === 'simulacao' ? e.fonte === 'simulacao' : e.fonte !== 'simulacao');
+  res.json({ periodo, fonte, eventos: eventos.filter(e => new Date(e.hora).getTime() >= comeco && porFonte(e)).slice().reverse() });
 });
 
 app.post('/api/simular', (req, res) => {
   const id = (req.body && req.body.dispositivo) || 'porta';
   if (!Object.hasOwn(estado.dispositivos,id)) return res.status(400).json({erro:'Dispositivo inválido'});
   if (!estado.dispositivos[id].ativo) return res.status(409).json({erro:'Canal desativado. Ative-o em Dispositivos antes de simular.'});
+  const agoraSim = Date.now();
+  if (agoraSim - ultimaSimulacao < 300) return res.status(429).json({erro:'Aguarde um instante antes de simular outro evento.'});
+  ultimaSimulacao = agoraSim;
   const evento = processarDeteccao(id, 400 + Math.round(Math.random() * 500), true);
   if (!evento) return res.status(400).json({ erro: 'Dispositivo inválido' });
   res.json(evento);
@@ -510,10 +586,57 @@ app.post('/api/hardware/testar', (req, res) => {
   res.json({ ok: true, enviado, modo: hardware.modo, observacao: enviado ? 'Comando enviado; resposta física não confirmada' : 'Nenhuma placa conectada; teste não foi enviado' });
 });
 
+/* ---------- Erros ---------- */
+// Sem isto o Express devolve páginas HTML (com detalhes internos) para erros de API.
+app.use('/api', (req, res) => res.status(404).json({ erro: 'Rota não encontrada' }));
+app.use((err, req, res, next) => {
+  const codigo = Number(err && (err.status || err.statusCode)) || 500;
+  const status = codigo >= 400 && codigo < 600 ? codigo : 500;
+  if (status >= 500) console.warn('Erro interno:', err && err.message);
+  const mensagens = { 400: 'Requisição inválida (JSON malformado).', 413: 'Corpo da requisição grande demais.' };
+  if (res.headersSent) return next(err);
+  res.status(status).json({ erro: mensagens[status] || 'Erro interno do servidor.' });
+});
+
+/* ---------- Encerramento limpo ---------- */
+// Ctrl+C durante um alerta não deve deixar LED/vibração ligados nem o histórico como "em andamento".
+function encerrarServidor(sinal) {
+  if (encerrando) return;
+  encerrando = true;
+  console.log('\nEncerrando (' + sinal + ')…');
+  clearTimeout(timerAlerta);
+  if (alerta) {
+    const ev = eventos.find((e) => e.id === alerta.eventoId);
+    if (ev) { ev.duracao = Math.max(1, Math.round((Date.now() - alerta.inicio) / 1000)); ev.status = 'interrompido'; }
+    alerta = null;
+  }
+  enviarHardware('PARAR');
+  salvarEventos();
+  salvarConfig();
+  setTimeout(() => {
+    try { wss.clients.forEach((c) => c.close(1001, 'Servidor encerrando')); } catch (_) { /* ignorado */ }
+    try { if (simSocket) simSocket.destroy(); } catch (_) { /* ignorado */ }
+    try { if (serial && serial.isOpen) serial.close(); } catch (_) { /* ignorado */ }
+    if (server.closeAllConnections) server.closeAllConnections();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 1500);
+  }, 200); // dá tempo de o comando PARAR sair pela serial
+}
+if (typeof process.on === 'function') {
+  ['SIGINT', 'SIGTERM'].forEach((sinal) => process.on(sinal, () => encerrarServidor(sinal)));
+}
+
 /* ---------- Início ---------- */
 carregarEventos();
 carregarConfig();
 iniciarSerial();
+if (typeof server.on === 'function') {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') console.error('A porta ' + PORT + ' já está em uso. Feche o outro processo ou use outra: PORT=3001 npm start');
+    else console.error('Falha ao iniciar o servidor:', err.message);
+    process.exit(1);
+  });
+}
 server.listen(PORT, HOST, () => {
   console.log(`Painel disponível em http://${HOST}:${PORT}`);
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') console.warn('ATENÇÃO: acesso na rede sem autenticação. Não exponha o servidor à Internet.');

@@ -10,10 +10,12 @@
     Fita/LED RGB (via transistores ou módulo, nunca direto se for fita 12V):
       Vermelho -> D9 | Verde -> D10 | Azul -> D11   (PWM)
     Módulo de vibração (via transistor + diodo) -> D5 (PWM)
+    Botão de silenciar (opcional): um terminal em D7 e o outro em GND (usa pull-up interno)
     Alimente sensores com 5V e GND comum.
 
   PROTOCOLO SERIAL (9600 baud, uma linha por mensagem)
     Arduino -> PC:  HELLO,alerta_visual
+                    SILENCIAR                      (botão físico pressionado)
                     EVT,<canal>,<pico>
                     STATUS,<alerta>,<led>,<motor> (cada 1 segundo)
                     READINGS,<A0>,<A1>,<A2>,<A3> (amplitude; -1 = sem leitura)
@@ -30,6 +32,7 @@ const uint8_t PIN_R = 9;
 const uint8_t PIN_G = 10;
 const uint8_t PIN_B = 11;
 const uint8_t PIN_VIB = 5;
+const uint8_t PIN_SILENCIAR = 7;
 
 const unsigned long JANELA_MS = 20;   // janela de amostragem por canal
 const unsigned long COOLDOWN_MS = 3000;
@@ -49,6 +52,9 @@ int ultimaAmplitude[4] = {-1,-1,-1,-1};
 
 char buffer[48];
 uint8_t tamanhoBuffer = 0;
+bool linhaGrande = false;               // linha maior que o buffer: descartada, nunca executada pela metade
+bool botaoAnterior = false;
+unsigned long ultimoBotao = 0;
 
 void definirLed(uint8_t intensidade) {
   analogWrite(PIN_R, (uint16_t)corR * intensidade / 255);
@@ -66,7 +72,7 @@ void apagarTudo() {
 }
 
 void iniciarAlerta(uint8_t r, uint8_t g, uint8_t b, uint8_t p, unsigned long segundos) {
-  corR = r; corG = g; corB = b; padrao = p;
+  corR = r; corG = g; corB = b; padrao = constrain(p, 1, 3);
   duracaoAlerta = segundos * 1000UL;
   inicioAlerta = millis();
   alertaAtivo = true;
@@ -99,7 +105,22 @@ void atualizarAlerta() {
   motorLigado = vibrar;
 }
 
+// Botão físico: silencia mesmo que o computador/navegador não esteja à mão.
+void verificarBotao() {
+  bool pressionado = digitalRead(PIN_SILENCIAR) == LOW;
+  if (pressionado && !botaoAnterior && millis() - ultimoBotao > 250) {
+    ultimoBotao = millis();
+    if (alertaAtivo) {
+      alertaAtivo = false;
+      apagarTudo();
+    }
+    Serial.println("SILENCIAR");
+  }
+  botaoAnterior = pressionado;
+}
+
 uint16_t lerPico(uint8_t canal) {
+  analogRead(PINOS_SOM[canal]);           // leitura descartada: deixa o conversor estabilizar ao trocar de canal
   unsigned long inicio = millis();
   uint16_t minimo = 1023, maximo = 0;
   while (millis() - inicio < JANELA_MS) {
@@ -107,6 +128,7 @@ uint16_t lerPico(uint8_t canal) {
     if (v < minimo) minimo = v;
     if (v > maximo) maximo = v;
     atualizarAlerta();                      // mantém LED/vibração fluidos durante a leitura
+    verificarBotao();
   }
   return maximo - minimo;
 }
@@ -131,11 +153,15 @@ void lerSerial() {
   while (Serial.available()) {
     char ch = Serial.read();
     if (ch == '\n') {
-      buffer[tamanhoBuffer] = '\0';
-      tratarComando(buffer);
+      if (!linhaGrande) {
+        buffer[tamanhoBuffer] = '\0';
+        tratarComando(buffer);
+      }
       tamanhoBuffer = 0;
-    } else if (ch != '\r' && tamanhoBuffer < sizeof(buffer) - 1) {
-      buffer[tamanhoBuffer++] = ch;
+      linhaGrande = false;
+    } else if (ch != '\r') {
+      if (tamanhoBuffer < sizeof(buffer) - 1) buffer[tamanhoBuffer++] = ch;
+      else linhaGrande = true;
     }
   }
 }
@@ -145,6 +171,7 @@ void setup() {
   pinMode(PIN_G, OUTPUT);
   pinMode(PIN_B, OUTPUT);
   pinMode(PIN_VIB, OUTPUT);
+  pinMode(PIN_SILENCIAR, INPUT_PULLUP);
   apagarTudo();
   Serial.begin(9600);
   Serial.println("HELLO,alerta_visual");
@@ -166,6 +193,7 @@ void loop() {
     }
   }
   atualizarAlerta();
+  verificarBotao();
   if (millis() - ultimaLeitura >= 2000) {
     ultimaLeitura = millis();
     Serial.print("READINGS");
