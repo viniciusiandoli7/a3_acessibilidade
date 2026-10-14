@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-<div align="center">
-=======
-# Alerta Visual — aplicação integrada e apresentação acadêmica
 
->>>>>>> fc5124cb4ca3eafe9d901ba66ccf2334d71e9c17
+# Alerta Visual — aplicação integrada e apresentação acadêmica
 
 # 🔔 a3_acessibilidade
 
