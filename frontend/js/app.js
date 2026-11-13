@@ -21,7 +21,10 @@
     saida: 'M9 21H5V3h4M16 17l5-5-5-5M21 12H9',
     enviar: 'M22 2L11 13M22 2l-7 20-4-9-9-4z',
     silencio: 'M8.7 3A6 6 0 0 1 18 8c0 3 .6 5 1.4 6.5M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14M10.3 21a1.94 1.94 0 0 0 3.4 0M2 2l20 20',
-    check: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3'
+    check: 'M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3',
+    termometro: 'M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z',
+    buzzer: 'M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14',
+    matriz: 'M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16'
   };
   const icone = (nome) =>
     '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="' +
@@ -32,14 +35,38 @@
     campainha: { rotulo: 'Campainha', icone: 'sino', titulo: 'Campainha tocando', desc: 'Alguém está na porta.' },
     bebe: { rotulo: 'Bebê', icone: 'bebe', titulo: 'Bebê chorando', desc: 'O bebê precisa de atenção.' },
     fumaca: { rotulo: 'Alarme de fumaça', icone: 'fumaca', titulo: 'Possível alarme de fumaça', desc: 'Um som foi captado perto do detector. Se houver risco de incêndio, saia do local e ligue 193.' },
-    custom: { rotulo: 'Personalizado', icone: 'custom', titulo: 'Som personalizado detectado', desc: 'Um som que você configurou foi detectado.' }
+    custom: { rotulo: 'Personalizado', icone: 'custom', titulo: 'Som personalizado detectado', desc: 'Um som que você configurou foi detectado.' },
+    temperatura: { rotulo: 'Temperatura alta', icone: 'termometro', titulo: 'Temperatura subindo rápido', desc: 'O sensor de temperatura detectou aquecimento anormal. Verifique o ambiente; se houver fogo ou fumaça, saia do local e ligue 193.' }
   };
+  const TIPOS_CRITICOS = ['fumaca', 'temperatura'];
   const DISPOSITIVOS = [
     { id: 'porta', nome: 'Sensor da Porta', tipo: 'campainha', icone: 'porta' },
     { id: 'bebe', nome: 'Monitor do Bebê', tipo: 'bebe', icone: 'bebe' },
     { id: 'fumaca', nome: 'Sensor do Alarme', tipo: 'fumaca', icone: 'fumaca' },
-    { id: 'custom', nome: 'Personalizável', tipo: 'custom', icone: 'custom' }
+    { id: 'custom', nome: 'Personalizável', tipo: 'custom', icone: 'custom' },
+    { id: 'temperatura', nome: 'Sensor de Temperatura', tipo: 'temperatura', icone: 'termometro' }
   ];
+  /* ---------- Espelho da montagem real (mesmos desenhos e padrões do firmware) ---------- */
+  const MATRIZ_ICONES = {
+    ok: '0001020488502000', alerta: '1818181818001818', x: '8142241818244281', cheio: 'FFFFFFFFFFFFFFFF', vazio: '0000000000000000',
+    campainha: '183C7E7E7EFF0018', bebe: '3C42A581A599423C', fumaca: '08181C3C7E7E7E3C', custom: '183C7EFFFF7E3C18', temperatura: '182424 3C3C7E7E3C'.replace(/ /g, '')
+  };
+  const NOMES_MATRIZ = { ok: 'OK (tudo normal)', alerta: '"!" (atenção)', x: '"X" (alarme)', cheio: 'Todos os pontos (teste)', vazio: 'Apagada',
+    campainha: 'Sino (campainha)', bebe: 'Rosto (bebê)', fumaca: 'Chama (fumaça)', custom: 'Losango (personalizado)', temperatura: 'Termômetro' };
+  const PADRAO_TIPO = { campainha: 1, bebe: 2, fumaca: 3, custom: 1, temperatura: 3 };
+  const NOMES_ESTADO_TEMP = ['Normal', 'Atenção', 'Alarme'];
+  const reduzirMovimento = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let placaAtual = null;      // última telemetria HW da placa
+  let temperaturaAtual = null; // última telemetria TEMP da placa
+  const ultimoAceso = { led1: 0, led2: 0, buzzer: 0, matriz: 0 };
+  let ultimaMatrizAcesa = MATRIZ_ICONES.ok;
+  let matrizDesenhada = '';
+  let pecasAtuais = null;        // inventário de peças enviado pelo servidor pelo WebSocket
+  let pecasRecebidasEm = 0;
+  let assinaturaPecas = '';
+  let clientesConectados = null;
+  let abrirPainelConexao = () => {};
+  let alertaAtualId = null, alertaDispensado = null, timerVibracao = null, registroSW = null, wakeLock = null;
   const CORES = [['azul', 'Azul'], ['laranja', 'Laranja'], ['vermelho', 'Vermelho']];
   const VIEWS = {
     dashboard: 'Sistema de Alerta Visual', dispositivos: 'Gestão de dispositivos',
@@ -127,6 +154,12 @@
     atualizarTitulo();
     if (moverFoco) $('conteudo').focus();
     window.scrollTo(0, 0);
+    if (nome === 'prototipo') centrarPalco();
+  }
+  // No celular o circuito é mais largo que a tela: já abre mostrando a protoboard (LEDs, buzzer, sensor e matriz).
+  function centrarPalco() {
+    const palco = $('sim-palco');
+    if (palco && window.matchMedia('(max-width:700px)').matches) requestAnimationFrame(() => { palco.scrollLeft = palco.scrollWidth; });
   }
 
   /* ---------- Painel ---------- */
@@ -157,7 +190,7 @@
 
   function renderDashboard() {
     cartaoEvento($('card-ultimo'), eventos[0], 'Último evento', 'Nenhum evento ainda');
-    cartaoEvento($('card-critico'), eventos.find((e) => e.tipo === 'fumaca'), 'Último alerta crítico', 'Sem alertas críticos');
+    cartaoEvento($('card-critico'), eventos.find((e) => TIPOS_CRITICOS.includes(e.tipo)), 'Último alerta crítico', 'Sem alertas críticos');
 
     const ativos = Object.values(estado.dispositivos).filter((d) => d.ativo).length;
     $('num-hoje').textContent = stats.hoje;
@@ -173,9 +206,12 @@
     const arduino = hw.modo === 'simulado' ? ['Simulação', 'aviso'] : hw.modo === 'wokwi' ? [hw.conectado ? 'Wokwi ativo' : 'Wokwi desconectado', hw.conectado ? 'ok' : 'aviso'] : hw.conectado ? ['Conectado', 'ok'] : ['Desconectado', 'aviso'];
     const lista = [
       ['chip', 'Arduino Uno', arduino],
-      ['sensor', 'Sensores configurados', [ativos + ' de 4', ativos ? 'ok' : 'aviso']],
-      ['vibracao', 'Vibração', null],
-      ['lampada', 'Iluminação', null]
+      ['chip', 'Peças reconhecidas', pecasAtuais && pecasAtuais.conectado && socketOk ? [pecasAtuais.reconhecidas + ' de ' + pecasAtuais.total, pecasAtuais.reconhecidas === pecasAtuais.total ? 'ok' : 'aviso'] : null],
+      ['sensor', 'Canais configurados', [ativos + ' de ' + DISPOSITIVOS.length, ativos ? 'ok' : 'aviso']],
+      ['termometro', 'Temperatura (A0)', temperaturaAtual && hw.conectado ? [temperaturaAtual.valor.toFixed(1) + ' °C · ' + NOMES_ESTADO_TEMP[temperaturaAtual.estado], temperaturaAtual.estado ? 'aviso' : 'ok'] : null],
+      ['lampada', '2 LEDs vermelhos', null],
+      ['buzzer', 'Buzzer', null],
+      ['matriz', 'Matriz 8×8', null]
     ];
     $('lista-hw').innerHTML = lista.map((i) =>
       '<li>' + icone(i[0]) + '<span>' + i[1] + '</span>' + (i[2] ? '<span class="estado ' + i[2][1] + '">' + i[2][0] + '</span>' : '') + '</li>'
@@ -203,7 +239,7 @@
       '</div><div class="preview-led" id="preview-' + d.id + '"><span class="led-icon">' + icone('lampada') + '</span><div><strong>Prévia da cor</strong><small>Representação visual · não aciona o hardware</small></div></div></fieldset>';
   }
   function montarDispositivos() {
-    const descricoes = {porta:'Som próximo da campainha',bebe:'Som no ambiente do bebê',fumaca:'Som próximo do alarme',custom:'Canal de som personalizável'};
+    const descricoes = {porta:'Som próximo da campainha · só simulação nesta montagem',bebe:'Som no ambiente do bebê · só simulação nesta montagem',fumaca:'Som próximo do alarme · só simulação nesta montagem',custom:'Canal de som personalizável · só simulação nesta montagem',temperatura:'Sensor NTC no A0 · sensibilidade maior dispara com aquecimento menor'};
     $('lista-dispositivos').innerHTML = DISPOSITIVOS.map((m) => {
       const d = estado.dispositivos[m.id];
       return '<article class="cartao disp t-' + m.tipo + '" data-id="' + m.id + '">' +
@@ -212,7 +248,7 @@
     }).join('');
     $('painel-saidas').innerHTML = '<section class="cartao exibicao"><div class="cabecalho-cartao"><div><p class="eyebrow">SAÍDAS DO SISTEMA</p><h2>Dispositivos de exibição</h2></div>' +
       '<div class="linha-chave"><span id="lbl-exib" class="nota">Habilitar saídas</span><label class="interruptor"><input type="checkbox" id="chk-exib" role="switch" aria-labelledby="lbl-exib"><span class="trilho"></span></label></div></div>' +
-      '<div class="equip" id="equip"><div>' + icone('chip') + 'Arduino Uno</div><div>' + icone('lampada') + 'Iluminação LED</div><div>' + icone('vibracao') + 'Motor vibratório</div></div>' +
+      '<div class="equip" id="equip"><div>' + icone('chip') + 'Arduino Uno</div><div>' + icone('lampada') + '2 LEDs vermelhos</div><div>' + icone('buzzer') + 'Buzzer</div><div>' + icone('matriz') + 'Matriz 8×8</div></div>' +
       '<p class="nota" id="aviso-equipamento">O estado de cada peça só pode ser confirmado com testes físicos.</p></section>' +
       '<section class="cartao saida-testes"><div><p class="eyebrow">TESTE RÁPIDO</p><h2>Veja um alerta funcionando</h2><p>Gere uma ocorrência identificada como demonstração.</p></div>' +
       '<label class="sr-only" for="sel-teste">Tipo de teste</label><select id="sel-teste">' + DISPOSITIVOS.map((m) => '<option value="' + m.id + '">' + esc(m.nome) + '</option>').join('') + '</select>' +
@@ -297,14 +333,14 @@
     const saida = !exib ? 'Saídas desabilitadas' : hw.modo === 'simulado' ? 'Prévia de demonstração' : telemetria ? 'Telemetria do firmware' : 'Aguardando telemetria';
     const testarFisicoDisponivel = hw.conectado && exib && !(a?.critico && a?.fonte !== 'simulacao');
     $('al-hardware').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-azul">Sinalização</span><span class="selo-texto">' + esc(saida) + '</span></div>' +
-      '<h2 class="titulo-cartao">Luz e vibração</h2>' +
+      '<h2 class="titulo-cartao">LEDs, buzzer e matriz</h2>' +
       '<div class="par"><span>Padrão LED configurado</span><strong>' + (a && exib ? esc(a.led) + ' · ' + esc(corNome) : 'Em espera') + '</strong></div>' +
-      '<div class="par"><span>LED (firmware)</span><strong>' + (telemetria ? (hw.ledAtivo ? 'Acionado' : 'Em repouso') : 'Sem confirmação') + '</strong></div>' +
-      '<div class="par"><span>Motor (firmware)</span><strong>' + (telemetria ? (hw.motorAtivo ? 'Acionado' : 'Em repouso') : 'Sem confirmação') + '</strong></div>' +
+      '<div class="par"><span>LEDs (firmware)</span><strong>' + (telemetria ? (hw.ledAtivo ? 'Acionados' : 'Em repouso') : 'Sem confirmação') + '</strong></div>' +
+      '<div class="par"><span>Buzzer (firmware)</span><strong>' + (telemetria ? (hw.buzzerAtivo || hw.motorAtivo ? 'Tocando' : 'Em silêncio') : 'Sem confirmação') + '</strong></div>' +
       '<div class="grow"></div><button type="button" class="btn btn-verde btn-bloco" id="btn-testar" ' + (testarFisicoDisponivel?'':'disabled') + ' title="' + (testarFisicoDisponivel?'Envia teste à placa; confirme a resposta fisicamente':'Indisponível sem placa conectada ou durante alerta crítico real') + '">' + icone('check') + 'Testar saídas físicas</button>' +
       (!testarFisicoDisponivel?'<p class="nota">Para executar este teste, conecte a placa física ou o Wokwi e habilite as saídas. Não disponível durante alerta crítico real.</p>':'');
     const dispositivosAtivos = Object.values(estado.dispositivos).filter(d=>d.ativo);
-    $('al-malha').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-verde">Seus canais</span><span class="status-pill neutro">' + dispositivosAtivos.length + '/4 habilitados</span></div><h2 class="titulo-cartao">Monitoramento configurado</h2>' +
+    $('al-malha').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-verde">Seus canais</span><span class="status-pill neutro">' + dispositivosAtivos.length + '/' + DISPOSITIVOS.length + ' habilitados</span></div><h2 class="titulo-cartao">Monitoramento configurado</h2>' +
       '<ul class="itens-malha">' + DISPOSITIVOS.map(m => '<li>' + icone(m.icone) + '<span>' + esc(m.nome) + '</span><strong class="est ' + (estado.dispositivos[m.id].ativo ? 'cor-texto-verde' : '') + '">' + (estado.dispositivos[m.id].ativo ? 'Habilitado' : 'Desativado') + '</strong></li>').join('') + '</ul>' +
       '<div class="grow"></div><p class="nota">' + esc(textoHardware()) + '. A conexão não confirma individualmente cada sensor.</p>';
     $('al-evacuacao').innerHTML = '<div class="topo-cartao"><span class="categoria cor-texto-laranja">Orientações</span></div>' +
@@ -331,33 +367,33 @@
     const nomes = NOMES_STATUS;
     if (!lista.length) return '<tr class="vazio-linha"><td colspan="6">Não há registros para este filtro.</td></tr>';
     const aviso120 = lista.length > 120 ? '<tr class="vazio-linha"><td colspan="6">Mostrando os 120 registros mais recentes de ' + lista.length + '. Exporte o CSV para ver todos.</td></tr>' : '';
-    return lista.slice(0,120).map(e=>'<tr><td class="hora">'+new Date(e.hora).toLocaleString('pt-BR')+'</td><td>'+etiquetaTipo(e.tipo)+'</td><td>'+esc(e.origem)+notaFonte(e)+'</td><td>'+ (Number.isFinite(e.db)?e.db+'*':'—') +'</td><td>'+duracao(e.duracao,e.status)+'</td><td><span class="status '+esc(e.status)+'">'+(nomes[e.status]||'Registrado')+'</span></td></tr>').join('') + aviso120;
+    return lista.slice(0,120).map(e=>'<tr><td class="hora">'+new Date(e.hora).toLocaleString('pt-BR')+'</td><td>'+etiquetaTipo(e.tipo)+'</td><td>'+esc(e.origem)+notaFonte(e)+'</td><td>'+ (Number.isFinite(e.db)?e.db+'*':Number.isFinite(e.temperatura)?e.temperatura.toFixed(1)+' °C':'—') +'</td><td>'+duracao(e.duracao,e.status)+'</td><td><span class="status '+esc(e.status)+'">'+(nomes[e.status]||'Registrado')+'</span></td></tr>').join('') + aviso120;
   }
   function renderRelatorios() {
     const lista = relatorio.eventos || [];
     const filtro = $('tipo-rel').value;
     const filtrados = filtro === 'todos' ? lista : lista.filter(e=>e.tipo===filtro);
     const pico = lista.reduce((m,e)=>e.db>(m?m.db:0)?e:m,null);
-    const cont = {campainha:0,bebe:0,fumaca:0,custom:0};
-    const periodos = Array.from({length:8},()=>({campainha:0,bebe:0,fumaca:0,custom:0}));
+    const cont = {campainha:0,bebe:0,fumaca:0,custom:0,temperatura:0};
+    const periodos = Array.from({length:8},()=>({campainha:0,bebe:0,fumaca:0,custom:0,temperatura:0}));
     lista.forEach(e=>{if(cont[e.tipo]===undefined)return;cont[e.tipo]++;periodos[Math.floor(new Date(e.hora).getHours()/3)][e.tipo]++;});
     const comum=Object.entries(cont).sort((a,b)=>b[1]-a[1])[0];
-    const atendidas = lista.filter(e=>e.tipo==='fumaca' && e.status!=='pendente').length;
+    const atendidas = lista.filter(e=>TIPOS_CRITICOS.includes(e.tipo) && e.status!=='pendente').length;
     const cards = [
       ['Total de eventos',String(lista.length)+'<small>Ocorrências no período escolhido</small>',''],
       ['Índice de sinal mais alto',pico?pico.db+'*<small>Leitura convertida, não calibrada</small>':'—<small>Sem leituras</small>','t-campainha'],
       ['Mais frequente',comum&&comum[1]?esc(TIPOS_UI[comum[0]].rotulo)+'<small>'+comum[1]+' ocorrências</small>':'—<small>Sem ocorrências</small>','t-custom'],
-      ['Alertas de fumaça encerrados',String(atendidas)+'<small>Encerrados ou silenciados, não significa risco resolvido</small>','t-fumaca']
+      ['Alertas críticos encerrados',String(atendidas)+'<small>Encerrados ou silenciados, não significa risco resolvido</small>','t-fumaca']
     ];
     $('stats-relatorio').innerHTML = cards.map(c=>'<article class="cartao '+c[2]+'"><h2>'+c[0]+'</h2><p class="valor">'+c[1]+'</p></article>').join('');
     const totais = periodos.map(p=>Object.values(p).reduce((a,b)=>a+b,0)), max = Math.max(1,...totais);
     $('grafico').innerHTML = periodos.map((p,i)=>{
       const fa = String(i*3).padStart(2,'0')+'h–'+String((i+1)*3).padStart(2,'0')+'h';
-      const segmentos = ['campainha','bebe','fumaca','custom'].filter(k=>p[k]).map(k=>'<div class="seg t-'+k+'" style="flex-grow:'+p[k]+'"></div>').join('');
-      const leitura = fa+': '+totais[i]+' eventos; campainha '+p.campainha+', bebê '+p.bebe+', alarme '+p.fumaca+', personalizados '+p.custom;
+      const segmentos = ['campainha','bebe','fumaca','custom','temperatura'].filter(k=>p[k]).map(k=>'<div class="seg t-'+k+'" style="flex-grow:'+p[k]+'"></div>').join('');
+      const leitura = fa+': '+totais[i]+' eventos; campainha '+p.campainha+', bebê '+p.bebe+', alarme '+p.fumaca+', personalizados '+p.custom+', temperatura '+p.temperatura;
       return '<li title="'+leitura+'"><span class="sr-only">'+leitura+'</span><div class="barra-area" aria-hidden="true"><span class="total">'+(totais[i]||'')+'</span><div class="pilha" style="height:'+(totais[i]?Math.max(4,Math.round(totais[i]/max*94)):0)+'%">'+segmentos+'</div></div><span class="faixa" aria-hidden="true">'+fa+'</span></li>';
     }).join('');
-    const labels={campainha:'Campainha',bebe:'Bebê',fumaca:'Alarme de fumaça',custom:'Outros'}, cores={campainha:'var(--laranja)',bebe:'var(--azul)',fumaca:'var(--vermelho)',custom:'var(--roxo)'};
+    const labels={campainha:'Campainha',bebe:'Bebê',fumaca:'Alarme de fumaça',custom:'Outros',temperatura:'Temperatura alta'}, cores={campainha:'var(--laranja)',bebe:'var(--azul)',fumaca:'var(--vermelho)',custom:'var(--roxo)',temperatura:'#ff7a45'};
     let soma=0;
     const fatias=Object.keys(cont).map(k=>{const ini=soma;soma+=lista.length?cont[k]/lista.length*360:0;return cores[k]+' '+ini+'deg '+soma+'deg';}).join(',');
     $('total-por-tipo').innerHTML = '<div class="donut" style="--fatias:conic-gradient('+(lista.length?fatias:'#243d5b 0deg 360deg')+')"><strong>'+lista.length+'<small>eventos</small></strong></div><ul class="categorias-lista">'+Object.keys(cont).map(k=>'<li style="--cor:'+cores[k]+'"><i class="q"></i><span>'+labels[k]+'</span><strong>'+cont[k]+'</strong><span class="nota">'+(lista.length?Math.round(cont[k]/lista.length*100):0)+'%</span></li>').join('')+'</ul>';
@@ -367,8 +403,8 @@
     const lista=(relatorio.eventos||[]).filter(e=>$('tipo-rel').value==='todos'||e.tipo===$('tipo-rel').value);
     if(!lista.length){aviso('Não há registros para exportar com este filtro.');return;}
     const seguro = x => { let v=String(x == null ? '' : x).replace(/^[\s]*[=+@-]/, m => String.fromCharCode(39)+m); return '"'+v.replace(/"/g,'""')+'"'; };
-    const cab=['Data/hora','Evento','Ambiente','Indice visual estimado (nao calibrado)','Duracao (s)','Situacao','Origem dos dados'];
-    const rows=lista.map(e=>[new Date(e.hora).toLocaleString('pt-BR'), TIPOS_UI[e.tipo]?.rotulo||e.tipo,e.origem,e.db,e.duracao,NOMES_STATUS[e.status]||e.status,ROTULOS_FONTE[e.fonte]||e.fonte]);
+    const cab=['Data/hora','Evento','Ambiente','Indice visual estimado (nao calibrado)','Temperatura (C)','Duracao (s)','Situacao','Origem dos dados'];
+    const rows=lista.map(e=>[new Date(e.hora).toLocaleString('pt-BR'), TIPOS_UI[e.tipo]?.rotulo||e.tipo,e.origem,e.db,e.temperatura,e.duracao,NOMES_STATUS[e.status]||e.status,ROTULOS_FONTE[e.fonte]||e.fonte]);
     const csv='\uFEFF'+[cab,...rows].map(row=>row.map(seguro).join(';')).join('\r\n');
     const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
     const a=document.createElement('a');a.href=url;a.download='alerta-visual-relatorio-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -376,20 +412,43 @@
   }
 
   /* ---------- Alerta em tela cheia ---------- */
+  function iniciarVibracao(a) {
+    clearInterval(timerVibracao); timerVibracao = null;
+    if (!navigator.vibrate) return;
+    const padrao = a.critico ? [300, 100, 300, 100, 300, 100, 300] : [400, 200, 400];
+    navigator.vibrate(padrao);
+    if (a.critico) timerVibracao = setInterval(() => navigator.vibrate(padrao), 2500); // aviso crítico insiste até silenciar
+  }
+  // Com a aba/tela em segundo plano, o aviso vem como notificação do sistema (precisa ter sido liberada pelo botão do menu).
+  async function notificarSistema(a) {
+    if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+    const t = TIPOS_UI[a.tipo];
+    const opcoes = {
+      body: a.origem + ' • ' + horaCurta(a.hora) + (Number.isFinite(a.temperatura) ? ' • ' + a.temperatura.toFixed(1) + ' °C' : ''),
+      tag: a.eventoId || 'alerta', requireInteraction: !!a.critico, vibrate: a.critico ? [300, 100, 300, 100, 300] : [400, 200, 400]
+    };
+    try {
+      const reg = registroSW || (navigator.serviceWorker && await navigator.serviceWorker.getRegistration());
+      if (reg && reg.showNotification) await reg.showNotification(t.titulo, opcoes);
+      else new Notification(t.titulo, opcoes);
+    } catch (_) { /* sem notificação: o alerta em tela cheia continua valendo */ }
+  }
   function mostrarAlerta(a) {
+    alertaAtualId = a.eventoId || null;
     const t = TIPOS_UI[a.tipo];
     const tela = $('alerta-tela');
     tela.className = 'alerta-tela t-' + a.tipo + (a.critico ? ' critico' : '');
     $('alerta-icone').innerHTML = icone(t.icone);
     $('alerta-titulo').textContent = t.titulo + (a.critico ? '!' : '');
     $('alerta-identificacao').textContent = a.fonte === 'simulacao' ? 'EVENTO DE DEMONSTRAÇÃO' : 'SINAL IMPORTANTE';
-    $('alerta-desc').textContent = a.origem + ' • ' + horaCurta(a.hora) + ' — ' + t.desc;
+    $('alerta-desc').textContent = a.origem + ' • ' + horaCurta(a.hora) + (Number.isFinite(a.temperatura) ? ' • ' + a.temperatura.toFixed(1) + ' °C' : '') + ' — ' + t.desc;
     if (tela.hidden) focoAnterior = document.activeElement;
     tela.hidden = false;
     definirFundoInerte(true);
     $('alerta-silenciar').focus();
     anunciar(t.titulo + '. ' + a.origem + '.' + (a.fonte === 'simulacao' ? ' Evento de demonstração.' : ''));
-    if (navigator.vibrate) navigator.vibrate(a.critico ? [300, 100, 300, 100, 300, 100, 300] : [400, 200, 400]);
+    iniciarVibracao(a);
+    notificarSistema(a);
   }
   // aria-modal não impede o leitor de tela/Tab de alcançar o fundo em todos os navegadores; "inert" impede.
   function definirFundoInerte(ligado) {
@@ -400,6 +459,8 @@
     if (tela.hidden) return;
     tela.hidden = true;
     definirFundoInerte(false);
+    clearInterval(timerVibracao); timerVibracao = null;
+    alertaDispensado = alertaAtualId;
     if (navigator.vibrate) navigator.vibrate(0);
     if (focoAnterior && document.contains(focoAnterior)) focoAnterior.focus();
   }
@@ -437,7 +498,9 @@
   function construirBancada(){
     const svg = $('sim-analog-pins');
     svg.innerHTML = Array.from({length:12},(_,i)=>'<rect x="'+(174+i*15)+'" y="182" width="7" height="8" rx="1"/><rect x="'+(174+i*15)+'" y="439" width="7" height="8" rx="1"/>').join('');
-    $('sim-components').innerHTML = DISPOSITIVOS.map((d,i) => '<button type="button" class="sim-component" data-sim-test="'+d.id+'"><span class="sim-component-icon">'+icone(d.icone)+'</span><span><strong>'+esc(d.nome)+'</strong><small>Entrada A'+i+' · Teste virtual</small></span><span class="component-arrow" aria-hidden="true">↗</span></button>').join('');
+    $('sim-components').innerHTML = DISPOSITIVOS.map((d) => '<button type="button" class="sim-component" data-sim-test="'+d.id+'"><span class="sim-component-icon">'+icone(d.icone)+'</span><span><strong>'+esc(d.nome)+'</strong><small>Teste virtual</small></span><span class="component-arrow" aria-hidden="true">↗</span></button>').join('');
+    // 64 pontos da matriz 8x8 (linha 0 em cima, bit 7 = coluna da esquerda, como no firmware)
+    $('sim-matriz').innerHTML = Array.from({length:64},(_,k)=>{const r=Math.floor(k/8),c=k%8;return '<circle class="matriz-ponto" data-p="'+k+'" cx="'+(831+c*17.4).toFixed(1)+'" cy="'+(215+r*17.4).toFixed(1)+'" r="6.6"/>';}).join('');
     $('sim-components').addEventListener('click',async e=>{
       const b=e.target.closest('[data-sim-test]');if(!b)return;
       await simularDaBancada(b.dataset.simTest,b);
@@ -446,6 +509,11 @@
     $('sim-hardware-test').addEventListener('click',async()=>{
       const btn=$('sim-hardware-test');btn.disabled=true;
       try {const resultado=await Api.testarHardware();registrarMonitor(resultado.observacao,resultado.enviado?'ok':'info');aviso(resultado.observacao);}
+      catch(e){aviso(e.message);}finally{btn.disabled=false;}
+    });
+    $('sim-temp-test').addEventListener('click',async()=>{
+      const btn=$('sim-temp-test');btn.disabled=true;
+      try {const r=await Api.testarTemperatura();registrarMonitor(r.observacao,'danger');aviso(r.observacao);}
       catch(e){aviso(e.message);}finally{btn.disabled=false;}
     });
     $('sim-reset').addEventListener('click',async()=>{
@@ -463,7 +531,7 @@
       {k:'sensor',titulo:'1. Sensor / ambiente',desc:a?`${AMBIENTES[a.dispositivo]?.nome || a.origem} enviou um sinal.`:'A casa aguarda um som configurado.'},
       {k:'backend',titulo:'2. Backend Node.js',desc:a?'O servidor registrou o evento e salvou no histórico.':'O backend fica pronto para receber eventos.'},
       {k:'painel',titulo:'3. Painel em tempo real',desc:a?'A interface foi atualizada via WebSocket.':'O painel escuta o servidor continuamente.'},
-      {k:'saidas',titulo:'4. LED e vibração',desc:ligado?(a?'Se o evento vier do hardware, as saídas podem ser acionadas.':'Aguardando um evento real do Arduino.'):(a?'Em simulação, o circuito é ilustrativo e não energiza saídas físicas.':'Sem placa conectada; apenas demonstração visual.')}
+      {k:'saidas',titulo:'4. LEDs, buzzer e matriz',desc:ligado?(a?'Se o evento vier do hardware, as saídas podem ser acionadas.':'Aguardando um evento real do Arduino.'):(a?'Em simulação, o circuito é ilustrativo e não energiza saídas físicas.':'Sem placa conectada; apenas demonstração visual.')}
     ];
     const ativo = a ? 4 : 1;
     const holder=$('flow-steps');
@@ -477,7 +545,9 @@
   async function simularDaBancada(id, botao){
     if(botao?.disabled)return;
     if(botao)botao.disabled=true;
-    try{ if(!estado?.dispositivos?.[id]?.ativo){aviso('Ative o canal em Dispositivos antes de testar.');return;} await Api.simular(id); registrarMonitor('Teste solicitado no canal '+id.toUpperCase()+'.','ok'); await atualizarTudo(); }
+    try{ if(!estado?.dispositivos?.[id]?.ativo){aviso('Ative o canal em Dispositivos antes de testar.');return;}
+      const fisico=!!$('sim-espelhar')?.checked && !$('sim-espelhar').disabled;
+      await Api.simular(id, fisico); registrarMonitor('Teste solicitado no canal '+id.toUpperCase()+(fisico?' (reproduzido na placa)':'')+'.','ok'); await atualizarTudo(); }
     catch(err){aviso(err.message);registrarMonitor('Não foi possível realizar o teste.','error');}
     finally{if(botao)botao.disabled=false;}
   }
@@ -492,33 +562,30 @@
     $('status-prototipo').textContent=ligado?'Conectado':fisico||wokwi?'Sem conexão':'Simulação';
     const testeFisicoPossivel = ligado && estado.exibicao && !(a?.critico && a?.fonte !== 'simulacao');
     $('sim-hardware-test').disabled=!testeFisicoPossivel;
+    $('sim-temp-test').disabled=!ligado||!estado.dispositivos.temperatura.ativo;
+    $('sim-temp-test').title=!ligado?'Disponível somente com a placa conectada':'A placa simula 60 °C por 20 s (acima do limite de 55 °C) para testar o alarme de ponta a ponta';
     $('sim-run').disabled=!estado.dispositivos.porta.ativo;
     $('sim-hardware-test').title=!ligado?'Disponível somente com Arduino ou Wokwi conectado':!estado.exibicao?'Ative as saídas em Dispositivos para testar':!testeFisicoPossivel?'Não teste saídas durante um alerta crítico real':'Envia TESTE pela comunicação serial (confirme visualmente a resposta)';
     $('status-origem').textContent=modo;
-    $('status-explicacao').textContent=ligado?'A placa está conectada. O painel mostra o que o firmware reporta; confirme presencialmente se LED e motor responderam como esperado.':'Você está vendo uma representação digital do circuito. Os testes atualizam a interface, mas não acionam componentes físicos.';
+    $('status-explicacao').textContent=ligado?'A placa está conectada. LEDs, buzzer e matriz desenhados aqui seguem o que o firmware informa em tempo real; confirme presencialmente.':'Você está vendo uma prévia da montagem. Os testes atualizam a interface, mas não acionam componentes físicos.';
+    const espelho=$('sim-espelhar');
+    if(espelho){espelho.disabled=!ligado||!estado.exibicao;if(espelho.disabled)espelho.checked=false;
+      $('sim-espelhar-ajuda').textContent=!ligado?'Disponível com a placa conectada':!estado.exibicao?'Ative as saídas em Dispositivos':'LEDs, buzzer e matriz mostram o teste';}
     const ult=eventos[0];
     $('status-ultimo').textContent=ult?TIPOS_UI[ult.tipo].rotulo+' · '+horaCurta(ult.hora):'Nenhum';
     $('arduino-meta').textContent=ligado?'Recebendo dados · '+(hw.porta||modo):fisico||wokwi?'Sem dados da placa':'Pronto para demonstrar';
     $('placa-atualizacao').textContent=a?'Sinal ativo em '+a.origem:'Em espera';
-    const telem=ligado && diagnostico?.status?.recente === true;
-    const led=ligado?telem&&diagnostico?.saidas?.led===true:!fisico&&!wokwi&&!!a&&estado.exibicao;
-    const motor=ligado?telem&&diagnostico?.saidas?.motor===true:!fisico&&!wokwi&&!!a&&estado.exibicao;
-    const incerto=ligado&&!telem;
-    $('led-label').textContent=incerto?'Sem retorno recente da placa':ligado?(led?'LED informado como ativo':'LED informado como desligado'):(led?'Prévia visual do alerta ativa':'Sem resposta física');
-    $('motor-label').textContent=incerto?'Sem retorno recente da placa':ligado?(motor?'Vibração informada como ativa':'Vibração informada como desligada'):(motor?'Prévia tátil representada':'Sem resposta física');
     $('sim-live-label').textContent=a?'Evento '+(a.fonte==='simulacao'?'simulado':'recebido'):'Em espera';
     $('sim-live-dot').className=a?'has-event':'';
-    $('circuito-svg').classList.toggle('circuit-live',!!led);
-    $('circuito-svg').classList.toggle('motor-live',!!motor);
-    $('sim-led').style.fill=led?({'azul':'#499dff','laranja':'#ffae37','vermelho':'#ff5264'}[a?.cor]||'#ffb35e'):'#842c36';
-    $('sim-board-led').style.fill=led?'#43e1b9':'#536c76';
-    $('sim-pulse-ring').setAttribute('opacity',led?'1':'0');
+    renderPlaca();
+    renderPecas();
     const sinal= a?.dispositivo;
     document.querySelectorAll('[data-sim-test]').forEach(btn=>{
       const entrada=diagnostico?.entradas?.find(v=>v.id===btn.dataset.simTest);
       const hint=btn.querySelector('small');
       const cfg=estado.dispositivos[btn.dataset.simTest];
-      if(hint)hint.textContent=!cfg.ativo?'Desativado · ative em Dispositivos':(ligado&&entrada?.amplitude!=null?'A'+({porta:0,bebe:1,fumaca:2,custom:3}[btn.dataset.simTest])+' · '+entrada.amplitude+' / 1023':'Entrada A'+({porta:0,bebe:1,fumaca:2,custom:3}[btn.dataset.simTest])+' · Teste virtual');
+      const ehTemp=btn.dataset.simTest==='temperatura';
+      if(hint)hint.textContent=!cfg.ativo?'Desativado · ative em Dispositivos':ehTemp?(ligado&&entrada?.temperatura!=null?'A0 · '+entrada.temperatura.toFixed(1)+' °C agora':'A0 · NTC · teste virtual'):'Sem microfone na montagem · teste virtual';
       btn.disabled=!cfg.ativo;
       btn.title=cfg.ativo?'Gerar evento de demonstração, sem acionar saídas reais':'Ative o canal em Dispositivos para poder simular';
       btn.classList.toggle('is-triggered',!!a&&sinal===btn.dataset.simTest);
@@ -527,18 +594,104 @@
     renderFluxoDoAlerta();
   }
 
+  /* ---------- Peças reconhecidas (inventário enviado pelo servidor) ---------- */
+  const ROTULOS_PECA = { sem_conexao: 'Sem conexão', sem_dados: 'Sem dados', falha: 'Falha: confira os fios' };
+  function rotuloPeca(p) {
+    if (ROTULOS_PECA[p.estado]) return ROTULOS_PECA[p.estado];
+    if (p.papel === 'entrada') return (p.estado === 'alarme' ? 'Alarme' : p.estado === 'atencao' ? 'Atenção' : 'Lendo') + (p.detalhe ? ' · ' + p.detalhe : '');
+    if (p.id === 'matriz') return p.estado === 'ativo' ? 'Mostrando: ' + nomeMatriz(p.detalhe) : 'Apagada';
+    return p.estado === 'ativo' ? 'Ligado' : 'Desligado';
+  }
+  function renderPecas() {
+    const lista = $('pecas-lista');
+    if (!lista) return;
+    const p = pecasAtuais;
+    // Se o servidor parar de avisar (ou o WebSocket cair), nada de continuar mostrando "ligado".
+    const velho = !!p && p.conectado && Date.now() - pecasRecebidasEm > 7000;
+    const itens = (p && p.itens) || [];
+    const ajustado = itens.map((i) => ({ ...i, estado: !socketOk ? 'sem_conexao' : velho && i.estado !== 'sem_conexao' ? 'sem_dados' : i.estado }));
+    const reconhecidas = ajustado.filter((i) => ['ativo', 'repouso', 'atencao', 'alarme'].includes(i.estado)).length;
+    const desconhecido = !!p && p.conectado && p.protocolo === 'desconhecido';
+    const assinatura = JSON.stringify([ajustado.map((i) => [i.id, i.estado, i.detalhe]), reconhecidas, desconhecido]);
+    if (assinatura === assinaturaPecas) return; // só mexe no DOM quando algo mudou (leitores de tela e rolagem agradecem)
+    assinaturaPecas = assinatura;
+    lista.innerHTML = ajustado.length ? ajustado.map((i) =>
+      '<li class="peca peca-' + i.estado + '"><span class="peca-ponto" aria-hidden="true"></span><span class="peca-nome"><strong>' + esc(i.nome) + '</strong><small>' +
+      (i.papel === 'entrada' ? 'Entrada' : 'Saída') + ' · ' + esc(i.pino) + '</small></span><span class="peca-estado">' + esc(rotuloPeca(i)) + '</span></li>').join('')
+      : '<li class="peca peca-sem_conexao"><span class="peca-nome"><strong>Aguardando o servidor…</strong></span></li>';
+    $('pecas-contagem').textContent = reconhecidas + ' de ' + (p ? p.total : 5);
+    const aviso = $('pecas-aviso');
+    aviso.hidden = !desconhecido;
+    if (desconhecido) aviso.textContent = 'A placa respondeu, mas não com o firmware deste projeto. Grave arduino/alerta_visual/alerta_visual.ino para as peças serem reconhecidas.';
+  }
+  function pintarClientes() {
+    const el = $('conexao-clientes');
+    if (!el) return;
+    el.textContent = socketOk && clientesConectados ? clientesConectados + (clientesConectados === 1 ? ' aparelho conectado' : ' aparelhos conectados') : '';
+  }
+
+  /* ---------- Espelho da placa: LEDs, buzzer, matriz e temperatura ---------- */
+  // Sem placa, calcula a mesma animação que o firmware faria para o alerta atual (prévia ilustrativa).
+  function previaPlaca(){
+    const a=estado?.alerta;
+    if(!a||!estado.exibicao) return {leds:[false,false],buzzer:false,matriz:MATRIZ_ICONES.ok};
+    const e=Math.max(0,Date.now()-(a.inicio||Date.now())), icone=MATRIZ_ICONES[a.tipo]||MATRIZ_ICONES.alerta, p=PADRAO_TIPO[a.tipo]||1;
+    if(p===1){const f=(e%1000)<500;return {leds:[f,!f],buzzer:(e%2000)<120,matriz:icone};}
+    if(p===2){const f=(e%2000)<1000;return {leds:[f,f],buzzer:(e%2000)<200,matriz:icone};}
+    const f=(e%500)<250;return {leds:[f,!f],buzzer:(e%500)<150,matriz:f?icone:MATRIZ_ICONES.vazio};
+  }
+  function nomeMatriz(hex){
+    const k=Object.keys(MATRIZ_ICONES).find(n=>MATRIZ_ICONES[n]===hex);
+    return k?NOMES_MATRIZ[k]:'Desenho personalizado';
+  }
+  function renderPlaca(){
+    if(!estado||!$('sim-matriz')) return;
+    const hw=estado.hardware, ligado=hw.conectado&&hw.modo!=='simulado';
+    const recente=placaAtual&&Date.now()-new Date(placaAtual.horario).getTime()<5000;
+    const fonte=ligado?(recente?'placa':'sem_dados'):'previa';
+    const s=fonte==='placa'?placaAtual:fonte==='previa'?previaPlaca():{leds:[false,false],buzzer:false,matriz:MATRIZ_ICONES.vazio};
+    const agora=Date.now();
+    // Com "reduzir movimento", pisca-pisca vira aceso contínuo (sem flashes na tela).
+    const segurar=(chave,ligadoAgora)=>{if(ligadoAgora)ultimoAceso[chave]=agora;return reduzirMovimento?agora-ultimoAceso[chave]<900:ligadoAgora;};
+    const l1=segurar('led1',!!s.leds[0]), l2=segurar('led2',!!s.leds[1]), bz=segurar('buzzer',!!s.buzzer);
+    let matriz=s.matriz;
+    if(matriz!==MATRIZ_ICONES.vazio){ultimaMatrizAcesa=matriz;ultimoAceso.matriz=agora;}
+    else if(reduzirMovimento&&agora-ultimoAceso.matriz<900) matriz=ultimaMatrizAcesa;
+    [['sim-led1',l1],['sim-led2',l2]].forEach(([id,on])=>{const el=$(id);el.classList.toggle('aceso',on);el.style.fill=on?'#ff3b3b':'#5a1f27';});
+    $('sim-buzzer').style.stroke=bz?'#ffc06d':'#4d5966';
+    $('sim-buzzer-ondas').setAttribute('opacity',bz?'1':'0');
+    if(matriz!==matrizDesenhada){
+      matrizDesenhada=matriz;
+      const pontos=$('sim-matriz').children;
+      for(let r=0;r<8;r++){const byte=parseInt(matriz.substr(r*2,2),16);for(let c=0;c<8;c++)pontos[r*8+c].classList.toggle('aceso',!!(byte&(0x80>>c)));}
+    }
+    $('sim-board-led').style.fill=fonte==='placa'?'#43e1b9':'#536c76';
+    const t=ligado?temperaturaAtual:null, tRecente=t&&agora-new Date(t.horario).getTime()<5000;
+    $('sim-temp-valor').textContent=tRecente?t.valor.toFixed(1)+' °C':ligado?'-- °C':'25.0 °C';
+    $('sim-temp-estado').textContent=tRecente?NOMES_ESTADO_TEMP[t.estado]+(t.silenciado?' (silenciado)':'')+' · '+(t.delta>=0?'+':'')+t.delta.toFixed(1)+' °C em 30 s':ligado?'Aguardando leitura do NTC':'Prévia (sem placa)';
+    $('sim-temp-estado').setAttribute('fill',tRecente&&t.estado===2?'#ff6b6b':tRecente&&t.estado===1?'#ffc06d':'#8fd6b5');
+    $('sim-ntc').style.fill=tRecente&&t.estado?'#b8452f':'#2f2a26';
+    const sufixo=fonte==='previa'?' (prévia)':'';
+    const semDados='Sem retorno recente da placa';
+    $('status-temp').textContent=tRecente?t.valor.toFixed(1)+' °C · '+NOMES_ESTADO_TEMP[t.estado]:ligado?'Aguardando leitura':'Sem placa conectada';
+    $('led-label').textContent=fonte==='sem_dados'?semDados:'LED 1 '+(l1?'aceso':'apagado')+' · LED 2 '+(l2?'aceso':'apagado')+sufixo;
+    $('motor-label').textContent=fonte==='sem_dados'?semDados:(bz?'Tocando':'Em silêncio')+sufixo;
+    $('status-matriz').textContent=fonte==='sem_dados'?semDados:nomeMatriz(matriz)+sufixo;
+  }
+
   /* ---------- V3: Mapa de ambientes ---------- */
   const AMBIENTES = {
     porta:{nome:'Entrada',descricao:'Campainha e sinais da porta',icone:'porta'},
     bebe:{nome:'Quarto',descricao:'Som captado no quarto do bebê',icone:'bebe'},
     fumaca:{nome:'Cozinha',descricao:'Canal que escuta o apito do detector',icone:'fumaca'},
-    custom:{nome:'Sala',descricao:'Canal de som personalizável',icone:'custom'}
+    custom:{nome:'Sala',descricao:'Canal de som personalizável',icone:'custom'},
+    temperatura:{nome:'Cozinha · temperatura',descricao:'Sensor NTC real (A0): detecta aquecimento rápido do ambiente',icone:'termometro'}
   };
   function ultimoDo(id){ return eventos.find(e => e.dispositivo === id); }
   function renderMapa(){
     if(!estado)return;
     const ativos=DISPOSITIVOS.filter(d=>estado.dispositivos[d.id].ativo).length;
-    $('mapa-situacao').textContent=ativos+' de 4 canais habilitados';
+    $('mapa-situacao').textContent=ativos+' de '+DISPOSITIVOS.length+' canais habilitados';
     for(const btn of document.querySelectorAll('[data-comodo]')){
       const id=btn.dataset.comodo, cfg=estado.dispositivos[id], ev=ultimoDo(id);
       const ativo=estado.alerta?.dispositivo===id;
@@ -633,19 +786,19 @@
     const atual = estado.alerta || eventos[0] || null;
     const conectado = estado.hardware.modo !== 'simulado' && estado.hardware.conectado;
     const etapas = [
-      ['Som e canal de entrada','Em modo físico, o Arduino lê os canais A0–A3. Na demonstração, o servidor gera um evento identificado como simulado.'],
+      ['Sensor e canal de entrada','Em modo físico, o Arduino lê o sensor de temperatura no A0. Os canais de som são demonstrados por simulação, identificada como tal.'],
       ['Servidor Node.js','O backend recebe ou simula o evento, grava o histórico e comunica aos navegadores em tempo real.'],
       ['Painel e mapa','O frontend recebe a atualização por WebSocket e destaca o cômodo, o alerta e o histórico.'],
-      ['Luz e vibração','No hardware físico, o Arduino pode acionar os atuadores. A bancada online mostra uma prévia sem energizar componentes.']
+      ['LEDs, buzzer e matriz','A placa acende os LEDs vermelhos, toca o buzzer e desenha um ícone na matriz 8×8. O protótipo ao vivo espelha cada peça.']
     ];
     const box = $('exp-etapas');
     if(box) box.innerHTML = etapas.map((et,i)=>`<article class="exp-step ${atual && i<3?'active':''}"><span>${i+1}</span><div><strong>${esc(et[0])}</strong><small>${esc(et[1])}</small></div></article>`).join('');
 
     const amb = $('exp-ambientes');
-    if(amb) amb.innerHTML = ['porta','bebe','fumaca','custom'].map(id=>{
+    if(amb) amb.innerHTML = ['porta','bebe','fumaca','custom','temperatura'].map(id=>{
       const cfg = estado.dispositivos[id];
       const room = AMBIENTES[id];
-      return `<article class="exp-room ${estado.alerta?.dispositivo===id?'hot':''} ${!cfg.ativo?'off':''}"><strong>${esc(room.nome)}</strong><small>${esc(room.descricao)}</small><span>Canal ${id==='porta'?'A0':id==='bebe'?'A1':id==='fumaca'?'A2':'A3'}</span></article>`;
+      return `<article class="exp-room ${estado.alerta?.dispositivo===id?'hot':''} ${!cfg.ativo?'off':''}"><strong>${esc(room.nome)}</strong><small>${esc(room.descricao)}</small><span>${id==='temperatura'?'Sensor real · A0 (NTC)':'Canal de som · simulado'}</span></article>`;
     }).join('');
 
     const pill = $('exp-pill');
@@ -656,22 +809,24 @@
       {title:'2. O backend interpreta e salva',text:atual?'O backend registrou horário, origem, categoria e duração do evento.':'Assim que um evento chega, ele entra no histórico e pode virar alerta.'},
       {title:'3. O mapa destaca o cômodo',text:atual?'O ambiente relacionado é destacado no mapa e no painel lateral.':'A planta da casa mostra qual canal pertence a cada cômodo.'},
       {title:'4. O alerta aparece na interface',text:atual?'O usuário vê o aviso, consegue silenciar e acompanhar a resposta visual.':'O painel permanece atualizado em tempo real por WebSocket.'},
-      {title:'5. O Arduino executa a resposta',text:conectado?(atual && atual.fonte !== 'simulacao' ? 'Com placa conectada, o firmware pode acionar LED e vibração.' : 'Com a placa conectada, o teste físico pode ser acionado separadamente.'):'Sem Arduino físico, a bancada mostra a lógica do circuito em modo ilustrativo.'}
+      {title:'5. O Arduino executa a resposta',text:conectado?(atual && atual.fonte !== 'simulacao' ? 'Com placa conectada, o firmware aciona LEDs, buzzer e matriz.' : 'Com a placa conectada, o teste físico pode ser acionado separadamente.'):'Sem Arduino físico, a bancada mostra a lógica do circuito em modo ilustrativo.'}
     ];
     if(timeline) timeline.innerHTML = steps.map((s,i)=>`<li class="${atual && i<4?'active':''}"><span>${i+1}</span><div><strong>${esc(s.title)}</strong><p>${esc(s.text)}</p></div></li>`).join('');
 
     const hard = $('exp-hard-list');
     if(hard) hard.innerHTML = [
-      ['Placa Arduino','Controla as entradas A0–A3 e recebe comandos do backend.'],
-      ['Protoboard','Representa as conexões dos componentes usados no protótipo.'],
-      ['LED / luz visual','Mostra o padrão visual do alerta quando a saída é acionada.'],
-      ['Motor de vibração','Representa o retorno tátil do sistema.'],
+      ['Placa Arduino','Lê o sensor de temperatura (A0), controla LEDs (D6/D7), buzzer (D8) e matriz (D10–D12) e conversa com o backend.'],
+      ['Sensor de temperatura','NTC 10k: avisa quando a temperatura sobe rápido (atenção) ou muito rápido (alarme).'],
+      ['2 LEDs vermelhos','Piscam no padrão do alerta; alternados quando o aviso é prioritário.'],
+      ['Matriz 8×8','Mostra um ícone: OK, "!", "X" ou o símbolo do evento enviado pelo painel.'],
+      ['Buzzer','Bipes para quem está por perto; o aviso principal continua sendo visual.'],
       ['Modo atual', conectado ? 'Hardware conectado e monitorado pelo servidor.' : estado.hardware.modo==='wokwi' ? 'Simulação Wokwi aguardando conexão.' : 'Demonstração local, sem placa física.']
     ].map(([t,d])=>`<div class="exp-hard-row"><strong>${esc(t)}</strong><small>${esc(d)}</small></div>`).join('');
   }
 
   /* ---------- Conexão e dados ---------- */
   function pintarConexao() {
+    pintarClientes();
     const el = $('conexao');
     let texto, cls;
     if (!socketOk) { texto = 'Sem conexão com o servidor'; cls = ''; }
@@ -682,6 +837,12 @@
     else { texto = 'Arduino desconectado'; cls = ''; }
     el.className = 'conexao ' + cls;
     $('conexao-texto').textContent = texto;
+    const chip = $('btn-conexao-mobile');
+    if (chip) {
+      const hw0 = estado && estado.hardware;
+      $('conexao-texto-mobile').textContent = !socketOk ? 'Sem servidor' : !hw0 ? 'Conectando' : hw0.modo === 'simulado' ? 'Demonstração' : hw0.modo === 'wokwi' ? 'Wokwi' : hw0.conectado ? 'Arduino ✓' : 'Sem placa';
+      chip.dataset.estado = cls || 'off';
+    }
     $('conexao-ajuda').textContent = !socketOk ? 'Verifique o servidor local' :
       !estado ? 'Carregando informações' :
       estado.hardware.modo === 'simulado' ? 'Sem Arduino físico' :
@@ -703,18 +864,27 @@
       // Uma resposta antiga nunca pode sobrescrever o estado de uma atualização recente.
       if (atualizacao !== numeroAtualizacao || periodo !== $('periodo-rel').value || fonte !== $('fonte-rel').value) return;
       estado = e; eventos = ev; stats = st; relatorio = report;
+      if (e.pecas) { pecasAtuais = e.pecas; pecasRecebidasEm = Date.now(); }
+      if (typeof e.clientes === 'number') clientesConectados = e.clientes;
+      if (e.hardware.placa) placaAtual = e.hardware.placa;
+      if (e.hardware.temperatura) temperaturaAtual = e.hardware.temperatura;
+      if (!e.hardware.conectado) { placaAtual = null; temperaturaAtual = null; }
       pintarConexao();
       renderDashboard();
       sincronizarDispositivos();
       renderAlertas();
       renderRelatorios();
       renderPrototipo();
+      renderPecas();
+      pintarClientes();
       renderBoasVindas();
       renderMapa();
       renderComoFunciona();
       const indicador = $('contagem-nav');
       indicador.hidden = !estado.alerta; 
       if (!estado.alerta) esconderAlerta();
+      // Quem entra (ou reconecta) com um alerta já em andamento também precisa vê-lo, a menos que tenha fechado este mesmo alerta.
+      else if ($('alerta-tela').hidden && alertaDispensado !== estado.alerta.eventoId) mostrarAlerta(estado.alerta);
       atualizarTitulo();
     } catch (err) {
       if (atualizacao === numeroAtualizacao) aviso(err.message || 'Não foi possível carregar os dados do servidor.');
@@ -734,15 +904,113 @@
       agendarAtualizacao();
     } else if (m.tipo === 'hardware') {
       registrarMonitor('Estado de hardware atualizado.','info');
+      if (m.hardware.placa) placaAtual = m.hardware.placa;
+      if (m.hardware.temperatura) temperaturaAtual = m.hardware.temperatura;
+      if (!m.hardware.conectado) { placaAtual = null; temperaturaAtual = null; }
       if (estado) { estado.hardware = m.hardware; pintarConexao(); renderPrototipo(); renderComoFunciona(); }
     } else if (m.tipo === 'teste') {
       aviso('Comando de teste solicitado. Consulte o estado do hardware para confirmar.');
+    } else if (m.tipo === 'pecas') {
+      pecasAtuais = m.pecas; pecasRecebidasEm = Date.now();
+      renderPecas();
+      if (estado && stats) renderDashboard();
+    } else if (m.tipo === 'clientes') {
+      clientesConectados = m.total;
+      pintarClientes();
+    } else if (m.tipo === 'placa') {
+      placaAtual = m.placa;
+      if (estado) renderPlaca();
+    } else if (m.tipo === 'temperatura') {
+      const anterior = temperaturaAtual ? temperaturaAtual.estado : null;
+      temperaturaAtual = m.temperatura;
+      if (anterior !== null && anterior !== m.temperatura.estado)
+        registrarMonitor('Temperatura: ' + NOMES_ESTADO_TEMP[m.temperatura.estado] + ' (' + m.temperatura.valor.toFixed(1) + ' °C).', m.temperatura.estado === 2 ? 'danger' : m.temperatura.estado === 1 ? 'info' : 'ok');
+      if (estado) { renderPlaca(); if (anterior !== m.temperatura.estado) { renderDashboard(); renderPrototipo(); } }
+    } else if (m.tipo === 'erro_placa') {
+      registrarMonitor('A placa informou um problema: ' + m.mensagem + '. Confira os fios do sensor no A0.', 'error');
     } else if (m.tipo === 'telemetria') {
       diagnostico=m.diagnostico;
       if (estado) { renderPrototipo(); renderComoFunciona(); }
     } else {
       agendarAtualizacao();
     }
+  }
+
+  /* ---------- Servidor remoto (celular) e avisos neste aparelho ---------- */
+  function ligarServidor() {
+    const form = $('form-servidor');
+    if (!form) return;
+    const campo = $('srv-endereco'), token = $('srv-token'), ajuda = $('srv-ajuda');
+    campo.value = Config.servidor();
+    token.value = Config.token();
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const r = Config.normalizarServidor(campo.value);
+      if (!r.ok) { ajuda.textContent = r.erro; campo.focus(); return; }
+      Config.gravar(Config.CHAVE_SERVIDOR, r.valor);
+      Config.gravar(Config.CHAVE_TOKEN, token.value.trim());
+      location.reload();
+    });
+    $('srv-limpar').addEventListener('click', () => {
+      Config.gravar(Config.CHAVE_SERVIDOR, '');
+      Config.gravar(Config.CHAVE_TOKEN, '');
+      location.reload();
+    });
+    // Página hospedada fora do notebook (ex.: Vercel) e ainda sem servidor: abre o formulário sozinho.
+    setTimeout(() => {
+      if (!socketOk && !Config.servidor() && !Config.ehHostLocal(location.hostname)) {
+        $('servidor-config').open = true;
+        abrirPainelConexao();
+        ajuda.textContent = 'Esta página não tem servidor próprio. Informe o endereço público do notebook e o token que ele mostra ao iniciar.';
+      }
+    }, 2500);
+  }
+  // No celular o rodapé do menu vira um painel que abre abaixo do cabeçalho (conexão, servidor e avisos).
+  function ligarPainelConexao() {
+    const btn = $('btn-conexao-mobile'), painel = $('lateral-rodape');
+    if (!btn || !painel) return;
+    const definir = (aberto) => { painel.classList.toggle('aberto', aberto); btn.setAttribute('aria-expanded', String(aberto)); };
+    abrirPainelConexao = () => definir(true);
+    btn.addEventListener('click', () => definir(!painel.classList.contains('aberto')));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && painel.classList.contains('aberto')) { definir(false); btn.focus(); } });
+    window.addEventListener('hashchange', () => definir(false));
+  }
+  function ligarAvisos() {
+    const btn = $('btn-avisos');
+    if (!btn) return;
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || Config.ehHostLocal(location.hostname))) {
+      navigator.serviceWorker.register('sw.js').then((r) => { registroSW = r; }).catch(() => { /* sem notificações em segundo plano */ });
+    }
+    const pintar = () => {
+      const ativo = Config.ler('av_avisos') === '1';
+      btn.textContent = ativo ? 'Avisos ativados neste aparelho' : 'Ativar avisos neste aparelho';
+      btn.setAttribute('aria-pressed', String(ativo));
+    };
+    const pedirTelaLigada = async () => {
+      try {
+        if (!('wakeLock' in navigator) || wakeLock) return;
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch (_) { /* sem bloqueio de tela: o aviso continua chegando com a página aberta */ }
+    };
+    btn.addEventListener('click', async () => {
+      if (Config.ler('av_avisos') === '1') {
+        Config.gravar('av_avisos', '');
+        try { if (wakeLock) await wakeLock.release(); } catch (_) { /* ignorado */ }
+        pintar(); aviso('Avisos desativados neste aparelho.');
+        return;
+      }
+      let permissao = 'Notification' in window ? Notification.permission : 'denied';
+      if (permissao === 'default') permissao = await Notification.requestPermission();
+      Config.gravar('av_avisos', '1');
+      await pedirTelaLigada();
+      pintar();
+      aviso(permissao === 'granted' ? 'Avisos ativados. Mantenha esta página aberta: a tela fica ligada e você é avisado mesmo com outra aba na frente.'
+        : 'Tela mantida ligada. As notificações do sistema estão bloqueadas neste navegador, mas o alerta aparece na tela.');
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && Config.ler('av_avisos') === '1') pedirTelaLigada(); });
+    if (Config.ler('av_avisos') === '1') pedirTelaLigada();
+    pintar();
   }
 
   /* ---------- Início ---------- */
@@ -772,6 +1040,9 @@
     ligarMapa();
     construirBancada();
     ligarGuia();
+    ligarServidor();
+    ligarAvisos();
+    ligarPainelConexao();
 
     $('alerta-silenciar').addEventListener('click', async () => {
       try { await Api.silenciar(); } catch (_) { esconderAlerta(); }
@@ -796,6 +1067,8 @@
     await atualizarTudo();
     await atualizarTelemetria();
     setInterval(()=>{if(location.hash==='#prototipo')atualizarTelemetria();},4000);
+    // Animação da prévia e expiração de dados antigos da placa (a telemetria real chega pelo WebSocket).
+    setInterval(()=>{if(location.hash==='#prototipo')renderPlaca();},120);
     setInterval(()=>{if (location.hash==='#mapa') renderMapa();},4000);
     if (estado && estado.alerta) mostrarAlerta(estado.alerta);
   });

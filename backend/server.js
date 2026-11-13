@@ -15,7 +15,9 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const PORT = Number(process.env.PORT) || 3000;
-const SERIAL_PORT = process.env.SERIAL_PORT || '';
+// Porta serial: variável SERIAL_PORT ou argumento --serial=COM9 (útil no Windows, onde npm scripts não aceitam VAR=valor)
+const argSerial = (process.argv || []).find((a) => a.startsWith('--serial='));
+const SERIAL_PORT = process.env.SERIAL_PORT || (argSerial ? argSerial.slice('--serial='.length) : '');
 // Ponte opcional: Wokwi VS Code -> script Python -> socket TCP local -> backend
 const SIM_TCP_PORT = process.env.SIM_TCP_PORT ? Number(process.env.SIM_TCP_PORT) : 0;
 if (SIM_TCP_PORT && (!Number.isInteger(SIM_TCP_PORT) || SIM_TCP_PORT < 1024 || SIM_TCP_PORT > 65535)) {
@@ -27,6 +29,32 @@ const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : pat
 const DATA_FILE = path.join(DATA_DIR, 'eventos.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const HOST = process.env.HOST || '127.0.0.1';
+// ---- Acesso remoto (celular abrindo o painel pelo Vercel) ----
+// ALLOWED_ORIGINS: endereços de páginas que podem falar com este servidor, separados por vírgula
+// (ex.: https://meu-app.vercel.app,https://*.vercel.app). Com acesso remoto, TODA chamada de fora do notebook exige o token.
+const argValor = (prefixo) => { const a = (process.argv || []).find((x) => x.startsWith(prefixo)); return a ? a.slice(prefixo.length) : ''; };
+const ORIGENS_EXTRAS = String(process.env.ALLOWED_ORIGINS || argValor('--origens=') || '').split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean);
+const HOST_LOCAL = ['127.0.0.1', 'localhost', '::1'].includes(HOST);
+const REMOTO = ORIGENS_EXTRAS.length > 0 || !!process.env.ACCESS_TOKEN || process.env.REMOTE === '1' || (process.argv || []).includes('--remoto') || !HOST_LOCAL;
+function carregarToken() {
+  if (!REMOTO) return '';
+  if (process.env.ACCESS_TOKEN) {
+    if (String(process.env.ACCESS_TOKEN).length < 8) throw new Error('ACCESS_TOKEN precisa ter ao menos 8 caracteres');
+    return String(process.env.ACCESS_TOKEN);
+  }
+  const arquivo = path.join(DATA_DIR, 'token.txt');
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (fs.existsSync(arquivo)) { const salvo = fs.readFileSync(arquivo, 'utf8').trim(); if (salvo.length >= 16) return salvo; }
+    const novo = crypto.randomBytes(18).toString('base64url');
+    fs.writeFileSync(arquivo, novo, { mode: 0o600 });
+    return novo;
+  } catch (e) {
+    console.warn('Não foi possível guardar o token em disco (ele mudará a cada início):', e.message);
+    return crypto.randomBytes(18).toString('base64url');
+  }
+}
+const TOKEN = carregarToken();
 const COOLDOWN_MS = 3000;          // evita registrar o mesmo toque várias vezes
 const DURACAO_ALERTA_MS = 15000;   // alertas comuns terminam sozinhos
 const DURACAO_CRITICO_MS = 600000; // expira após 10 minutos ou ao silenciar
@@ -37,10 +65,14 @@ const TIPOS = {
   campainha: { rotulo: 'Campainha', origem: 'Entrada', critico: false, led: 'Pisca lento', vibracao: 'Pulso curto', padrao: 1 },
   bebe:      { rotulo: 'Bebê',      origem: 'Quarto',  critico: false, led: 'Pulsante suave', vibracao: 'Pulso médio', padrao: 2 },
   fumaca:    { rotulo: 'Alarme de fumaça', origem: 'Cozinha', critico: true, led: 'Pisca intermitente', vibracao: 'Pulso rápido', padrao: 3 },
-  custom:    { rotulo: 'Personalizado', origem: 'Sala', critico: false, led: 'Pisca lento', vibracao: 'Pulso curto', padrao: 1 }
+  custom:    { rotulo: 'Personalizado', origem: 'Sala', critico: false, led: 'Pisca lento', vibracao: 'Pulso curto', padrao: 1 },
+  // Sensor real da montagem (NTC no A0): o próprio firmware decide ATENÇÃO/ALARME e aciona LEDs, buzzer e matriz.
+  temperatura: { rotulo: 'Temperatura alta', origem: 'Cozinha', critico: true, led: 'LEDs alternados (rápido)', vibracao: 'Buzzer rápido', padrao: 3 }
 };
-const CANAIS = { porta: 0, bebe: 1, fumaca: 2, custom: 3 };          // id do dispositivo -> pino no Arduino
-const TIPO_POR_DISPOSITIVO = { porta: 'campainha', bebe: 'bebe', fumaca: 'fumaca', custom: 'custom' };
+const CANAIS = { porta: 0, bebe: 1, fumaca: 2, custom: 3, temperatura: 4 };   // id do dispositivo -> canal no Arduino
+const TIPO_POR_DISPOSITIVO = { porta: 'campainha', bebe: 'bebe', fumaca: 'fumaca', custom: 'custom', temperatura: 'temperatura' };
+// Ícone mostrado na matriz 8x8 quando um alerta é enviado à placa (ver firmware).
+const ICONE_MATRIZ = { campainha: 1, bebe: 2, fumaca: 3, custom: 4, temperatura: 5 };
 const CORES_RGB = { azul: [0, 0, 255], laranja: [255, 110, 0], vermelho: [255, 0, 0] };
 
 /* ---------- Estado em memória ---------- */
@@ -50,7 +82,8 @@ const estado = {
     porta:  { id: 'porta',  tipo: 'campainha', ativo: true, sensibilidade: 60, cor: 'laranja' },
     bebe:   { id: 'bebe',   tipo: 'bebe',      ativo: true, sensibilidade: 60, cor: 'azul' },
     fumaca: { id: 'fumaca', tipo: 'fumaca',    ativo: true, sensibilidade: 60, cor: 'vermelho' },
-    custom: { id: 'custom', tipo: 'custom',    ativo: false, sensibilidade: 60, cor: 'azul' }
+    custom: { id: 'custom', tipo: 'custom',    ativo: false, sensibilidade: 60, cor: 'azul' },
+    temperatura: { id: 'temperatura', tipo: 'temperatura', ativo: true, sensibilidade: 65, cor: 'vermelho' }
   }
 };
 const ultimoPorDispositivo = {};
@@ -63,7 +96,9 @@ let timerAlerta = null;
 let hardware = {
   modo: SIM_TCP_PORT ? 'wokwi' : SERIAL_PORT ? 'serial' : 'simulado',
   conectado: false, porta: SIM_TCP_PORT ? 'TCP:' + SIM_TCP_PORT : SERIAL_PORT || null,
-  ultimaMensagem: null, ledAtivo: false, motorAtivo: false, firmware: null
+  ultimaMensagem: null, ledAtivo: false, motorAtivo: false, buzzerAtivo: false, firmware: null,
+  placa: null,        // espelho das saídas: { leds:[bool,bool], buzzer, matriz:'16 hex', horario }
+  temperatura: null   // { valor, delta, estado:0|1|2, silenciado, horario }
 };
 let serial = null;
 let simSocket = null;
@@ -130,13 +165,43 @@ const app = express();
 const server = http.createServer(app);
 const MAX_CLIENTES_WS = 20;
 // Somente páginas servidas por este mesmo servidor podem abrir o WebSocket (evita sites externos espionando o painel).
+function origemExtraPermitida(origin) {
+  let u;
+  try { u = new URL(origin); } catch (_) { return false; }
+  return ORIGENS_EXTRAS.some((padrao) => {
+    if (padrao === u.origin) return true;
+    const m = /^(https?):\/\/\*\.([^/:]+)$/.exec(padrao); // https://*.vercel.app
+    return !!m && u.protocol === m[1] + ':' && u.hostname.endsWith('.' + m[2]);
+  });
+}
 const origemPermitida = (origin, host) => {
   if (!origin) return true; // clientes que não são navegadores (testes, curl)
-  try { return new URL(origin).host === host; } catch (_) { return false; }
+  try { if (new URL(origin).host === host) return true; } catch (_) { return false; }
+  return origemExtraPermitida(origin);
 };
+// "Local" = o próprio notebook, sem passar por túnel/proxy (túneis sempre acrescentam cabeçalhos de encaminhamento).
+const CABECALHOS_ENCAMINHADO = ['x-forwarded-for', 'x-forwarded-host', 'forwarded', 'cf-connecting-ip', 'cf-ray', 'x-real-ip'];
+function ehLocal(req) {
+  const h = req.headers || {};
+  if (CABECALHOS_ENCAMINHADO.some((k) => h[k])) return false;
+  const host = String(h.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+  if (!['localhost', '127.0.0.1', '::1'].includes(host)) return false;
+  const ip = (req.socket && req.socket.remoteAddress) || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+const resumo = (t) => crypto.createHash('sha256').update(String(t)).digest();
+function tokenValido(req) {
+  if (!REMOTO || ehLocal(req)) return true;
+  const h = req.headers || {};
+  let dado = '';
+  const auth = String(h.authorization || '');
+  if (/^Bearer /i.test(auth)) dado = auth.slice(7).trim();
+  if (!dado && req.url) { try { dado = new URL(req.url, 'http://local').searchParams.get('token') || ''; } catch (_) { /* sem token */ } }
+  return crypto.timingSafeEqual(resumo(dado), resumo(TOKEN)); // compara resumos de tamanho fixo, em tempo constante
+}
 const wss = new WebSocketServer({
   server, path: '/ws',
-  verifyClient: (info) => origemPermitida(info.origin, info.req.headers.host)
+  verifyClient: (info) => origemPermitida(info.origin, info.req.headers.host) && tokenValido(info.req)
 });
 
 function transmitir(mensagem) {
@@ -149,6 +214,11 @@ wss.on('connection', (ws) => {
   ws.on('pong', () => { ws.vivo = true; });
   ws.on('error', () => {});
   ws.send(JSON.stringify({ tipo: 'estado' }));
+  // Quem conecta (notebook ou celular) já recebe o que a placa informou: peças, temperatura e saídas.
+  ws.send(JSON.stringify({ tipo: 'hardware', hardware }));
+  ws.send(JSON.stringify({ tipo: 'pecas', pecas: inventarioPecas() }));
+  transmitir({ tipo: 'clientes', total: wss.clients.size });
+  ws.on('close', () => transmitir({ tipo: 'clientes', total: wss.clients.size }));
 });
 // Heartbeat: remove conexões "fantasma" (aba fechada sem aviso, rede caiu).
 const heartbeat = typeof setInterval === 'function' ? setInterval(() => {
@@ -160,10 +230,51 @@ const heartbeat = typeof setInterval === 'function' ? setInterval(() => {
 }, 30000) : null;
 if (heartbeat && heartbeat.unref) heartbeat.unref();
 
+/* ---------- Inventário de peças (o que a placa informou, em tempo real) ---------- */
+function inventarioPecas() {
+  const agora = Date.now();
+  const ligado = hardware.conectado && hardware.modo !== 'simulado';
+  const fresco = (o) => !!o && agora - new Date(o.horario).getTime() < 5000;
+  const hw = hardware.placa, t = hardware.temperatura;
+  const hwOk = ligado && fresco(hw), tOk = ligado && fresco(t);
+  const falhaNtc = ligado && !!hardware.erroSensor && agora - new Date(hardware.erroSensor).getTime() < 4000;
+  const saida = (ok, ligada) => (!ligado ? 'sem_conexao' : !ok ? 'sem_dados' : ligada ? 'ativo' : 'repouso');
+  const itens = [
+    { id: 'ntc', nome: 'Sensor de temperatura (NTC)', pino: 'A0', papel: 'entrada',
+      estado: falhaNtc ? 'falha' : !ligado ? 'sem_conexao' : !tOk ? 'sem_dados' : t.estado === 2 ? 'alarme' : t.estado === 1 ? 'atencao' : 'ativo',
+      detalhe: tOk && !falhaNtc ? t.valor.toFixed(1) + ' °C' : null },
+    { id: 'led1', nome: 'LED vermelho 1', pino: 'D6', papel: 'saida', estado: saida(hwOk, hwOk && hw.leds[0]), detalhe: null },
+    { id: 'led2', nome: 'LED vermelho 2', pino: 'D7', papel: 'saida', estado: saida(hwOk, hwOk && hw.leds[1]), detalhe: null },
+    { id: 'buzzer', nome: 'Buzzer', pino: 'D8', papel: 'saida', estado: saida(hwOk, hwOk && hw.buzzer), detalhe: null },
+    { id: 'matriz', nome: 'Matriz de LEDs 8×8 (MAX7219)', pino: 'D10–D12', papel: 'saida',
+      estado: saida(hwOk, hwOk && hw.matriz !== '0000000000000000'), detalhe: hwOk ? hw.matriz : null }
+  ];
+  return {
+    conectado: ligado, porta: hardware.porta, firmware: hardware.firmware, protocolo: hardware.protocolo || null,
+    reconhecidas: itens.filter((i) => ['ativo', 'repouso', 'atencao', 'alarme'].includes(i.estado)).length,
+    total: itens.length, itens
+  };
+}
+let ultimoJsonPecas = '', ultimoEnvioPecas = 0;
+// No máximo 1 mensagem por segundo, e só quando algo mudou (ou ao forçar).
+function difundirPecas(forcar) {
+  const agora = Date.now();
+  if (!forcar && agora - ultimoEnvioPecas < 1000) return;
+  const pecas = inventarioPecas();
+  const json = JSON.stringify(pecas);
+  if (!forcar && json === ultimoJsonPecas) return;
+  ultimoJsonPecas = json; ultimoEnvioPecas = agora;
+  transmitir({ tipo: 'pecas', pecas });
+}
+// Percebe sozinho quando a placa para de falar (cabo solto): as peças passam a "sem dados".
+const vigiaPecas = typeof setInterval === 'function' ? setInterval(() => difundirPecas(false), 2000) : null;
+if (vigiaPecas && vigiaPecas.unref) vigiaPecas.unref();
+
 /* ---------- Arduino ---------- */
 function limparTelemetria() {
   leituras = {}; instanteLeituras = null; ultimoStatus = null;
-  hardware.ledAtivo = false; hardware.motorAtivo = false;
+  hardware.ledAtivo = false; hardware.motorAtivo = false; hardware.buzzerAtivo = false;
+  hardware.placa = null; hardware.temperatura = null; hardware.erroSensor = null; hardware.protocolo = null;
 }
 function estadoDiagnostico() {
   const agora = Date.now();
@@ -174,14 +285,24 @@ function estadoDiagnostico() {
     modo: hardware.modo, conectado: ligado, firmware: hardware.firmware,
     status: { horario: ultimoStatus, idadeMs:idadeStatus, recente: ligado && idadeStatus !== null && idadeStatus < 5000 },
     entradas: Object.values(estado.dispositivos).map(d => {
-      const dado = leituras[d.id];
       const ultimo = eventos.slice().reverse().find(e=>e.dispositivo===d.id);
+      if (d.id === 'temperatura') {
+        const temp = hardware.temperatura;
+        const idade = temp ? agora - new Date(temp.horario).getTime() : null;
+        return {id:d.id,ativo:d.ativo,ultimoEvento:ultimo?.hora || null,amplitude:null,
+          temperatura: ligado && idade !== null && idade < 5000 ? temp.valor : null, ultimaLeitura: temp ? temp.horario : null,
+          estado:!d.ativo?'desativado':!ligado?'sem_conexao':idade===null?'aguardando':idade>=5000?'desatualizado':'informando'};
+      }
+      const dado = leituras[d.id];
       return {id:d.id,ativo:d.ativo,ultimoEvento:ultimo?.hora || null,
         amplitude: ligado && idadeLeituras !== null && idadeLeituras < 6000 && Number.isInteger(dado) ? dado : null,
         ultimaLeitura: instanteLeituras,estado:!d.ativo?'desativado':!ligado?'sem_conexao':idadeLeituras===null?'aguardando':idadeLeituras>=6000?'desatualizado':'informando'};
     }),
     saidas: {led: ligado && idadeStatus !== null && idadeStatus < 5000 ? hardware.ledAtivo : null,
-      motor: ligado && idadeStatus !== null && idadeStatus < 5000 ? hardware.motorAtivo : null},
+      motor: ligado && idadeStatus !== null && idadeStatus < 5000 ? hardware.motorAtivo : null,
+      buzzer: ligado && idadeStatus !== null && idadeStatus < 5000 ? hardware.buzzerAtivo : null},
+    placa: ligado ? hardware.placa : null,
+    temperatura: ligado ? hardware.temperatura : null,
     aviso:'Telemetria é uma declaração do firmware, não prova elétrica ou de segurança.'
   };
 }
@@ -195,12 +316,19 @@ function enviarHardware(linha) {
   if (serial && serial.isOpen) { serial.write(linha + '\n'); return true; }
   return false;
 }
+// Sensibilidade do sensor de temperatura -> subida mínima em 30 s para ATENÇÃO, em décimos de grau.
+// 0% = 5,0 °C (pouco sensível) | 100% = 0,5 °C (muito sensível). O ALARME é o dobro.
+function limiarTemperatura(pct) {
+  return Math.max(5, Math.round(50 - Math.max(0, Math.min(100, pct)) * 0.45));
+}
+function enviarConfiguracao(d) {
+  const canal = CANAIS[d.id];
+  if (d.id === 'temperatura') enviarHardware(`CFGT,${limiarTemperatura(d.sensibilidade)}`);
+  else enviarHardware(`CFG,${canal},${limiarDeSensibilidade(d.sensibilidade)}`);
+  enviarHardware(`ATIVO,${canal},${d.ativo ? 1 : 0}`);
+}
 function sincronizarHardware() {
-  Object.values(estado.dispositivos).forEach((d) => {
-    const canal = CANAIS[d.id];
-    enviarHardware(`CFG,${canal},${limiarDeSensibilidade(d.sensibilidade)}`);
-    enviarHardware(`ATIVO,${canal},${d.ativo ? 1 : 0}`);
-  });
+  Object.values(estado.dispositivos).forEach(enviarConfiguracao);
 }
 function iniciarSerial() {
   if (SIM_TCP_PORT) { iniciarPonteWokwi(); return; }
@@ -224,10 +352,29 @@ function iniciarSerial() {
     if (reconectando || encerrando) return;
     reconectando = setTimeout(() => { reconectando = null; abrir(); }, 5000);
   };
-  const abrir = () => {
-    const porta = new SerialPort({ path: SERIAL_PORT, baudRate: BAUD }, (err) => {
+  // SERIAL_PORT=auto: procura a placa pelos fabricantes comuns de Arduino/FTDI/CH340 (prefere o COM9, se existir).
+  const resolverPorta = async () => {
+    if (SERIAL_PORT.toLowerCase() !== 'auto') return SERIAL_PORT;
+    const lista = await SerialPort.list();
+    const candidatas = lista.filter((p) => ['0403', '2341', '1a86', '10c4', '2a03'].includes(String(p.vendorId || '').toLowerCase()));
+    const escolhida = candidatas.find((p) => p.path === 'COM9') || candidatas[0];
+    return escolhida ? escolhida.path : null;
+  };
+  const abrir = async () => {
+    let caminho = null;
+    try { caminho = await resolverPorta(); } catch (e) { console.warn('Não foi possível listar as portas seriais:', e.message); }
+    if (encerrando) return;
+    if (!caminho) {
+      console.warn('Nenhum Arduino encontrado. Confira o cabo USB (nova tentativa em 5 s).');
+      hardware.conectado = false;
+      agendarReconexao();
+      return;
+    }
+    hardware.porta = caminho;
+    const porta = new SerialPort({ path: caminho, baudRate: BAUD }, (err) => {
       if (err) {
-        console.warn('Falha ao abrir', SERIAL_PORT, '-', err.message);
+        const ocupada = /access denied|busy|in use/i.test(err.message);
+        console.warn('Falha ao abrir', caminho, '-', err.message + (ocupada ? ' (porta ocupada: feche o Monitor Serial e a Arduino IDE)' : ''));
         hardware.conectado = false;
         agendarReconexao();
       }
@@ -235,8 +382,10 @@ function iniciarSerial() {
     serial = porta;
     const parser = porta.pipe(new ReadlineParser({ delimiter: '\n' }));
     porta.on('open', () => {
-      console.log('Arduino conectado em', SERIAL_PORT);
+      console.log('Arduino conectado em', caminho);
       hardware.conectado = true;
+      hardware.protocolo = null; hardware.erroSensor = null;
+      difundirPecas(true);
       transmitir({ tipo: 'estado' });
       setTimeout(sincronizarHardware, 2500); // o Uno reinicia ao abrir a serial
     });
@@ -245,12 +394,13 @@ function iniciarSerial() {
       hardware.conectado = false;
       limparTelemetria();
       transmitir({ tipo: 'estado' });
+      difundirPecas(true);
       agendarReconexao();
     });
     porta.on('error', (e) => console.warn('Erro serial:', e.message));
     parser.on('data', (linha) => tratarLinhaSerial(String(linha).trim()));
   };
-  abrir();
+  abrir().catch((e) => console.warn('Falha na conexão serial:', e.message));
 }
 // Não expor a ponte na rede. Somente o bridge local poderá se conectar.
 function iniciarPonteWokwi() {
@@ -297,6 +447,9 @@ function iniciarPonteWokwi() {
 function tratarLinhaSerial(linha) {
   // Formatos: EVT,<canal>,<pico> | HELLO,... | STATUS,<alerta>,<led>,<motor>
   const partes = linha.split(',');
+  // A placa responde com o protocolo deste projeto? (um sketch antigo gravado na placa imprime só texto livre)
+  if (['HELLO', 'STATUS', 'READINGS', 'SILENCIAR', 'EVT', 'HW', 'TEMP', 'ERRO'].includes(partes[0])) hardware.protocolo = 'reconhecido';
+  else if (linha && hardware.protocolo !== 'reconhecido') hardware.protocolo = 'desconhecido';
   if (partes[0] === 'HELLO') {
     hardware.firmware = partes.slice(1).join(',').slice(0, 50);
     hardware.ultimaMensagem = new Date().toISOString();
@@ -316,6 +469,38 @@ function tratarLinhaSerial(linha) {
       hardware.ultimaMensagem = instanteLeituras;
       transmitir({tipo:'telemetria',diagnostico:estadoDiagnostico()});
     }
+  } else if (partes[0] === 'HW' && partes.length === 5) {
+    // Espelho das saídas reais: LED1, LED2, buzzer e as 8 linhas da matriz.
+    const [l1, l2, bz] = partes.slice(1, 4);
+    const matriz = partes[4].toUpperCase();
+    if ([l1, l2, bz].every((v) => v === '0' || v === '1') && /^[0-9A-F]{16}$/.test(matriz)) {
+      const agoraIso = new Date().toISOString();
+      ultimoStatus = agoraIso;
+      hardware.ultimaMensagem = agoraIso;
+      hardware.placa = { leds: [l1 === '1', l2 === '1'], buzzer: bz === '1', matriz, horario: agoraIso };
+      hardware.ledAtivo = l1 === '1' || l2 === '1';
+      hardware.buzzerAtivo = bz === '1';
+      transmitir({ tipo: 'placa', placa: hardware.placa });
+      difundirPecas(false);
+    }
+  } else if (partes[0] === 'TEMP' && partes.length >= 4) {
+    const valor = Number(partes[1]), delta = Number(partes[2]), nivel = Number(partes[3]);
+    if (Number.isFinite(valor) && valor > -40 && valor < 150 && Number.isFinite(delta) && [0, 1, 2].includes(nivel)) {
+      const anterior = hardware.temperatura ? hardware.temperatura.estado : 0;
+      const agoraIso = new Date().toISOString();
+      hardware.ultimaMensagem = agoraIso;
+      hardware.erroSensor = null;
+      hardware.temperatura = { valor: Math.round(valor * 10) / 10, delta: Math.round(delta * 100) / 100, estado: nivel, silenciado: partes[4] === '1', teste: partes[5] === '1', horario: agoraIso };
+      transmitir({ tipo: 'temperatura', temperatura: hardware.temperatura });
+      difundirPecas(false);
+      // Só o ALARME vira evento (crítico). ATENÇÃO aparece no painel e na placa, sem abrir alerta em tela cheia.
+      // Durante o teste (temperatura injetada pelo firmware) o evento é marcado como simulação, nunca como dado real.
+      if (nivel === 2 && anterior < 2) processarDeteccao('temperatura', 0, hardware.temperatura.teste, { temperatura: hardware.temperatura.valor });
+    }
+  } else if (partes[0] === 'ERRO') {
+    hardware.ultimaMensagem = new Date().toISOString();
+    if (partes[1] === 'sensor') { hardware.erroSensor = hardware.ultimaMensagem; difundirPecas(true); }
+    transmitir({ tipo: 'erro_placa', mensagem: partes.slice(1).join(',').slice(0, 60) });
   } else if (partes[0] === 'SILENCIAR') {
     // Botão físico do Arduino: permite silenciar mesmo sem acesso ao navegador.
     if (alerta) {
@@ -339,7 +524,7 @@ function registrarSilenciamentoFisico() {
   transmitir({ tipo: 'estado' });
 }
 
-function processarDeteccao(dispositivoId, pico, forcar) {
+function processarDeteccao(dispositivoId, pico, forcar, opcoes = {}) {
   const d = estado.dispositivos[dispositivoId];
   if (!d) return null;
   if (!d.ativo && !forcar) return null;
@@ -362,7 +547,8 @@ function processarDeteccao(dispositivoId, pico, forcar) {
     origem: tipo.origem,
     cor: d.cor,
     hora: new Date(agora).toISOString(),
-    db: picoParaDb(pico || 400),
+    db: d.tipo === 'temperatura' ? null : picoParaDb(pico || 400),
+    temperatura: d.tipo === 'temperatura' && Number.isFinite(opcoes.temperatura) ? opcoes.temperatura : undefined,
     fonte: forcar ? 'simulacao' : hardware.modo === 'wokwi' ? 'wokwi' : 'arduino',
     duracao: null,
     status: 'pendente',
@@ -391,11 +577,11 @@ function processarDeteccao(dispositivoId, pico, forcar) {
     transmitir({ tipo: 'evento', evento, alertar: false });
     return evento;
   }
-  iniciarAlerta(evento);
+  iniciarAlerta(evento, !!opcoes.espelhar);
   return evento;
 }
 
-function iniciarAlerta(evento) {
+function iniciarAlerta(evento, espelhar) {
   if (alerta) encerrarAlerta('encerrado', true);
   const t = TIPOS[evento.tipo];
   alerta = {
@@ -410,13 +596,19 @@ function iniciarAlerta(evento) {
     led: t.led,
     vibracao: t.vibracao,
     hora: evento.hora,
-    inicio: Date.now()
+    inicio: Date.now(),
+    temperatura: evento.temperatura,
+    espelhado: false
   };
   const duracaoMs = t.critico ? DURACAO_CRITICO_MS : DURACAO_ALERTA_MS;
-  // Eventos criados no painel nunca acionam o hardware físico: evite efeitos não intencionais.
-  if (estado.exibicao && evento.fonte !== 'simulacao') {
+  // Eventos criados no painel só acionam a placa quando o usuário pede explicitamente ("reproduzir na placa").
+  // O alarme de temperatura real já é sinalizado pelo próprio firmware: não reenviar.
+  const real = evento.fonte !== 'simulacao';
+  const precisaEnviar = real ? evento.tipo !== 'temperatura' : !!espelhar && hardware.conectado;
+  if (estado.exibicao && precisaEnviar) {
     const [r, g, b] = CORES_RGB[evento.cor] || CORES_RGB.azul;
-    enviarHardware(`ALERTA,${r},${g},${b},${t.padrao},${Math.round(duracaoMs / 1000)}`);
+    const enviado = enviarHardware(`ALERTA,${r},${g},${b},${t.padrao},${Math.round(duracaoMs / 1000)},${ICONE_MATRIZ[evento.tipo] ?? 0}`);
+    alerta.espelhado = enviado && !real;
   }
   clearTimeout(timerAlerta);
   timerAlerta = setTimeout(() => encerrarAlerta('encerrado'), duracaoMs);
@@ -430,7 +622,7 @@ function encerrarAlerta(motivo, silencioso) {
     evento.duracao = Math.max(1, Math.round((Date.now() - alerta.inicio) / 1000));
     evento.status = motivo === 'silenciado' ? 'atendido' : 'encerrado';
   }
-  const deveriaPararHardware = alerta.fonte !== 'simulacao';
+  const deveriaPararHardware = alerta.fonte !== 'simulacao' || alerta.espelhado || alerta.tipo === 'temperatura';
   alerta = null;
   clearTimeout(timerAlerta);
   if (deveriaPararHardware) enviarHardware('PARAR');
@@ -449,10 +641,10 @@ function estatisticas() {
   eventos.forEach((e) => { contagem[e.tipo] = (contagem[e.tipo] || 0) + 1; });
   const maisFrequenteTipo = Object.keys(contagem).sort((a, b) => contagem[b] - contagem[a])[0] || null;
 
-  const fumacas = eventos.filter((e) => e.tipo === 'fumaca');
+  const fumacas = eventos.filter((e) => TIPOS[e.tipo] && TIPOS[e.tipo].critico);
   const atendidas = fumacas.filter((e) => e.status === 'atendido').length;
 
-  const porPeriodo = Array.from({ length: 8 }, () => ({ campainha: 0, bebe: 0, fumaca: 0, custom: 0 }));
+  const porPeriodo = Array.from({ length: 8 }, () => ({ campainha: 0, bebe: 0, fumaca: 0, custom: 0, temperatura: 0 }));
   eventos.forEach((e) => {
     const faixa = Math.floor(new Date(e.hora).getHours() / 3);
     if (porPeriodo[faixa][e.tipo] !== undefined) porPeriodo[faixa][e.tipo] += 1;
@@ -484,8 +676,21 @@ function protecao(req, res, next) {
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
     "connect-src 'self' ws: wss:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
   if (req.path && req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  // CORS só para as páginas explicitamente liberadas (ex.: o app no Vercel); qualquer outra origem continua sem acesso.
+  const origem = req.headers.origin;
+  if (origem && origemExtraPermitida(origem)) {
+    res.setHeader('Access-Control-Allow-Origin', origem);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '600');
+    if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
+  }
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !origemPermitida(req.headers.origin, req.headers.host)) {
     return res.status(403).json({ erro: 'Origem não permitida' });
+  }
+  if (req.path && req.path.startsWith('/api/') && !tokenValido(req)) {
+    return res.status(401).json({ erro: 'Token de acesso ausente ou inválido.' });
   }
   next();
 }
@@ -494,7 +699,7 @@ app.use(express.json({ limit:'32kb' }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 app.get('/api/estado', (req, res) => {
-  res.json({ exibicao: estado.exibicao, dispositivos: estado.dispositivos, hardware, alerta, tipos: TIPOS });
+  res.json({ exibicao: estado.exibicao, dispositivos: estado.dispositivos, hardware, alerta, tipos: TIPOS, pecas: inventarioPecas(), clientes: wss.clients.size });
 });
 
 app.put('/api/dispositivos/:id', (req, res) => {
@@ -507,9 +712,7 @@ app.put('/api/dispositivos/:id', (req, res) => {
   if (typeof ativo === 'boolean') d.ativo = ativo;
   if (sensibilidade !== undefined) d.sensibilidade = Math.round(sensibilidade);
   if (cor !== undefined) d.cor = cor;
-  const canal = CANAIS[d.id];
-  enviarHardware(`CFG,${canal},${limiarDeSensibilidade(d.sensibilidade)}`);
-  enviarHardware(`ATIVO,${canal},${d.ativo ? 1 : 0}`);
+  enviarConfiguracao(d);
   salvarConfig();
   transmitir({ tipo: 'estado' });
   res.json(d);
@@ -553,7 +756,12 @@ app.post('/api/simular', (req, res) => {
   const agoraSim = Date.now();
   if (agoraSim - ultimaSimulacao < 300) return res.status(429).json({erro:'Aguarde um instante antes de simular outro evento.'});
   ultimaSimulacao = agoraSim;
-  const evento = processarDeteccao(id, 400 + Math.round(Math.random() * 500), true);
+  // "fisico": true pede para reproduzir o teste na placa conectada (o evento continua marcado como simulação).
+  const espelhar = req.body && req.body.fisico === true;
+  if (espelhar && !hardware.conectado) return res.status(409).json({erro:'Nenhuma placa conectada para reproduzir o teste.'});
+  if (espelhar && !estado.exibicao) return res.status(409).json({erro:'Ative as saídas em Dispositivos para reproduzir na placa.'});
+  const temperaturaSimulada = id === 'temperatura' ? Math.round((48 + Math.random() * 10) * 10) / 10 : undefined;
+  const evento = processarDeteccao(id, 400 + Math.round(Math.random() * 500), true, { espelhar, temperatura: temperaturaSimulada });
   if (!evento) return res.status(400).json({ erro: 'Dispositivo inválido' });
   res.json(evento);
 });
@@ -574,6 +782,14 @@ app.post('/api/alerta/silenciar', (req, res) => {
   encerrarAlerta('silenciado');
   transmitir({ tipo: 'estado' });
   res.json({ ok: true });
+});
+
+// Teste do sensor de temperatura: a placa troca a leitura do NTC por uma temperatura acima do limite de alarme (55 °C).
+app.post('/api/hardware/testar-temperatura', (req, res) => {
+  if (!hardware.conectado || hardware.modo === 'simulado') return res.status(409).json({ erro: 'Conecte a placa para testar o sensor de temperatura.' });
+  if (!estado.dispositivos.temperatura.ativo) return res.status(409).json({ erro: 'Ative o canal de temperatura em Dispositivos antes de testar.' });
+  const enviado = enviarHardware('TESTE_TEMP,600,20');
+  res.json({ ok: true, enviado, temperatura: 60, segundos: 20, observacao: enviado ? 'Teste iniciado: a placa simula 60 °C por 20 s (limite de alarme: 55 °C).' : 'Não foi possível enviar o comando à placa.' });
 });
 
 app.post('/api/hardware/testar', (req, res) => {
@@ -639,5 +855,10 @@ if (typeof server.on === 'function') {
 }
 server.listen(PORT, HOST, () => {
   console.log(`Painel disponível em http://${HOST}:${PORT}`);
-  if (HOST !== '127.0.0.1' && HOST !== 'localhost') console.warn('ATENÇÃO: acesso na rede sem autenticação. Não exponha o servidor à Internet.');
+  if (REMOTO) {
+    console.log('\nAcesso remoto ATIVO (celular / Vercel). Chamadas de fora do notebook exigem o token.');
+    console.log('  Token de acesso : ' + TOKEN);
+    console.log('  Origens liberadas: ' + (ORIGENS_EXTRAS.join(', ') || '(somente páginas servidas por este servidor)'));
+    console.log('  Link de pareamento: <endereço do painel>/?servidor=<endereço público deste servidor>&token=' + TOKEN);
+  }
 });

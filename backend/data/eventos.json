@@ -206,5 +206,48 @@
     "duracao": 600,
     "status": "encerrado",
     "acao": "Alerta de atenção ativado"
+  },
+  {
+    "id": "3d4b38d1-33ae-4c6b-bf3e-45ec2d50b278",
+    "tipo": "campainha",
+    "dispositivo": "porta",
+    "rotulo": "Campainha",
+    "origem": "Entrada",
+    "cor": "laranja",
+    "hora": "2026-11-09T23:19:31.937Z",
+    "db": 77,
+    "fonte": "simulacao",
+    "duracao": 15,
+    "status": "encerrado",
+    "acao": "Alerta visual ativado"
+  },
+  {
+    "id": "3eff2c62-56bd-4fb4-94b8-81f5e2ff7695",
+    "tipo": "campainha",
+    "dispositivo": "porta",
+    "rotulo": "Campainha",
+    "origem": "Entrada",
+    "cor": "laranja",
+    "hora": "2026-11-13T02:13:50.218Z",
+    "db": 82,
+    "fonte": "simulacao",
+    "duracao": 2,
+    "status": "atendido",
+    "acao": "Alerta visual ativado"
+  },
+  {
+    "id": "61491e29-af12-4269-8127-fec513c86f6c",
+    "tipo": "temperatura",
+    "dispositivo": "temperatura",
+    "rotulo": "Temperatura alta",
+    "origem": "Cozinha",
+    "cor": "vermelho",
+    "hora": "2026-11-13T02:14:19.725Z",
+    "db": null,
+    "temperatura": 37.9,
+    "fonte": "arduino",
+    "duracao": 4,
+    "status": "atendido",
+    "acao": "Alerta de atenção ativado"
   }
 ]

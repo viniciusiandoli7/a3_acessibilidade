@@ -50,7 +50,7 @@ const ok = (condicao, mensagem) => { console.log((condicao ? 'OK     ' : 'FALHA 
     });
     const w = dom.window, d = w.document, $ = (id) => d.getElementById(id);
 
-    ok(await ate(() => $('lista-dispositivos').children.length === 4 && $('conexao-texto').textContent !== 'Conectando…'), 'painel carrega e conecta (' + $('conexao-texto').textContent + ')');
+    ok(await ate(() => $('lista-dispositivos').children.length === 5 && $('conexao-texto').textContent !== 'Conectando…'), 'painel carrega e conecta (' + $('conexao-texto').textContent + ')');
     w.location.hash = '#guia'; await esperar(200);
     ok($('guia-explicacao').textContent.length > 20, 'demonstração guiada mostra o texto explicativo');
     $('guia-avancar').click();

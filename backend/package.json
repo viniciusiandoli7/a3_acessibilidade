@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:arduino": "node server.js --serial=COM9",
+    "start:celular": "node server.js --serial=COM9 --remoto --origens=https://*.vercel.app",
     "test": "node ../tests/backend-smoke.js",
     "test:ui": "node ../tests/ui-smoke.js"
   },

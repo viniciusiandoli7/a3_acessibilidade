@@ -171,32 +171,47 @@ Para encerrar, use `Ctrl+C`: o servidor desliga o LED, grava o alerta em andamen
 | Variável | Padrão | Função |
 | :--- | :---: | :--- |
 | `PORT` | `3000` | Porta do painel. |
-| `HOST` | `127.0.0.1` | Endereço de escuta. Só mude em rede confiável: não há login. |
-| `SERIAL_PORT` | vazio | Porta do Arduino (`COM3`, `/dev/ttyACM0`). Vazio = modo demonstração. |
+| `HOST` | `127.0.0.1` | Endereço de escuta. Fora de `127.0.0.1` o acesso remoto é ligado e passa a exigir o token. |
+| `SERIAL_PORT` | vazio | Porta do Arduino (`COM9`, `/dev/ttyACM0`) ou `auto` para procurar a placa sozinho (prefere o `COM9`). Vazio = modo demonstração. Também vale `--serial=COM9`. |
 | `SIM_TCP_PORT` | vazio | Ativa a ponte local do Wokwi. |
 | `DATA_DIR` | `backend/data` | Pasta do histórico e das configurações. |
+| `ALLOWED_ORIGINS` | vazio | Páginas autorizadas a falar com este servidor (ex.: `https://meu-app.vercel.app`, aceita `https://*.vercel.app`). Liga o acesso remoto. Também vale `--origens=...`. |
+| `ACCESS_TOKEN` | gerado | Senha do acesso remoto (mín. 8 caracteres). Se vazio, o servidor gera uma e guarda em `backend/data/token.txt`. |
+| `REMOTE` | vazio | `1` liga o acesso remoto sem definir origens (o mesmo que `--remoto`). |
 
 </details>
 
 ## 🔌 Arduino e Wokwi
 
-### Montagem
+### Montagem (placa real usada nos testes)
 
 | Peça | Pino | Observação |
 | :--- | :---: | :--- |
-| Sensor de som da campainha | `A0` | Módulo analógico (ex.: KY-038 ou MAX4466), saída `AO` |
-| Sensor de som do bebê | `A1` | idem |
-| Sensor de som do detector de fumaça | `A2` | idem |
-| Sensor de som personalizável | `A3` | idem |
-| LED RGB (vermelho, verde, azul) | `D9`, `D10`, `D11` | Com resistores; fita de 12 V exige driver e fonte própria |
-| Motor de vibração | `D5` | Via transistor e diodo; **nunca direto no pino** |
-| Botão de silenciar *(opcional)* | `D7` e `GND` | Pull-up interno; silencia na placa e avisa o painel |
+| LED vermelho 1 | `D6` | Com resistor |
+| LED vermelho 2 | `D7` | Com resistor |
+| Buzzer | `D8` | Bipes para quem está por perto; o aviso principal continua visual |
+| Sensor de temperatura (NTC 10k) | `A0` | NTC entre `A0` e `GND`, resistor de 10k entre `A0` e `5V` |
+| Matriz de LEDs 8×8 (MAX7219) | `D12` DIN · `D11` CLK · `D10` CS | Biblioteca **LedControl** (instale pelo Gerenciador de Bibliotecas) |
 
-Sensores em 5 V, com `GND` comum.
+Tudo em 5 V, com `GND` comum.
+
+**Como a placa reage sozinha** (mesmo sem o computador): compara a temperatura atual com a de 30 s atrás.
+
+| Estado | Quando | Matriz | LEDs | Buzzer |
+| :--- | :--- | :--- | :--- | :--- |
+| Normal | sem variação relevante | ✓ (OK) | apagados | mudo |
+| Atenção | subiu ≥ 2 °C em 30 s ou ≥ 40 °C | `!` | LED 1 pisca | bipe a cada 2 s |
+| Alarme | subiu ≥ 4 °C em 30 s ou ≥ 55 °C | `X` piscando | alternados | bipe rápido |
+
+O limiar de 2 °C é ajustado pela **sensibilidade** do canal *Sensor de Temperatura* na tela Dispositivos (o alarme é sempre o dobro). Só o **Alarme** vira evento crítico no painel; **Silenciar** no painel também silencia a placa.
+
+Na tela **Protótipo ao vivo**, os dois LEDs, o buzzer, a matriz 8×8 e a temperatura são desenhados **em tempo real conforme a placa informa**. A opção *Reproduzir os testes na placa* faz um teste do painel (campainha, bebê etc.) acender os LEDs, bipar e mostrar o ícone do evento na matriz; o evento continua marcado como simulação. Os canais de som não têm microfone nesta montagem e funcionam só por simulação.
+
+**Testar o sensor de temperatura:** o botão *Testar sensor de temperatura (60 °C)* do Protótipo ao vivo (ou `TESTE_TEMP` no Monitor Serial) faz a placa trocar a leitura do NTC por 60 °C durante 20 s, acima do limite de alarme (55 °C). O alarme dispara na placa e no painel de ponta a ponta; o evento fica marcado como **simulação** e, ao terminar (ou ao silenciar), a placa volta a ler o NTC e recalibra.
 
 ### Usando a placa real
 
-1. Abra `arduino/alerta_visual/alerta_visual.ino` na Arduino IDE e grave na placa (Arduino Uno).
+1. Instale a biblioteca **LedControl**, abra `arduino/alerta_visual/alerta_visual.ino` na Arduino IDE e grave na placa (Arduino Uno).
 2. Descubra a porta serial (aparece na IDE) e **feche o Monitor Serial**, para liberar a porta.
 3. Inicie o servidor informando a porta:
 
@@ -213,7 +228,51 @@ cd backend
 SERIAL_PORT=/dev/ttyACM0 npm start
 ```
 
+Atalho para a placa no **COM9** (funciona em qualquer terminal, inclusive no Windows):
+
+```bash
+cd backend
+npm run start:arduino        # equivale a: node server.js --serial=COM9
+```
+
 O indicador na lateral do painel passa a mostrar que o Arduino está conectado. Velocidade serial: 9600 baud.
+
+### 📱 Celular: app no Vercel + Arduino no notebook
+
+O Arduino fica ligado ao **notebook**. O Vercel só entrega a tela (arquivos estáticos, sem servidor), então o celular precisa alcançar o servidor do notebook por um endereço `https` público (um túnel). O alerta é difundido por WebSocket para **todos** os aparelhos conectados: notebook e celular recebem o mesmo aviso, e silenciar em um silencia em todos.
+
+```mermaid
+flowchart LR
+    A["Arduino<br/>COM9"] -->|USB| N["Notebook<br/>servidor Node.js"]
+    N -->|"túnel https + token"| C["Celular<br/>app no Vercel"]
+    N --> P["Painel no notebook"]
+```
+
+1. **Publicar a tela:** no Vercel, importe este repositório. O `vercel.json` já aponta para a pasta `frontend`, sem build.
+2. **Servidor no notebook** (placa no COM9, acesso remoto ligado):
+   ```bash
+   cd backend
+   npm run start:celular
+   ```
+   Ele imprime o **token de acesso**. Por padrão libera qualquer `*.vercel.app`; para liberar só o seu app: `node server.js --serial=COM9 --remoto --origens=https://SEU-APP.vercel.app`.
+3. **Túnel** (em outro terminal; instale uma vez com `winget install Cloudflare.cloudflared`):
+   ```bash
+   cloudflared tunnel --url http://localhost:3000
+   ```
+   Ele mostra um endereço `https://….trycloudflare.com`. **Esse endereço muda a cada vez que o túnel é iniciado.**
+4. **Parear o celular:** abra no celular
+   `https://SEU-APP.vercel.app/?servidor=https://….trycloudflare.com&token=SEU_TOKEN`.
+   O app guarda o endereço e o token e limpa o link. Também dá para digitar em **Conexão → Servidor** (botão no topo da tela).
+5. Toque em **Ativar avisos neste aparelho**: a tela do celular fica ligada e, com outra aba na frente, o alerta chega como notificação.
+
+> [!WARNING]
+> O token é a senha do seu servidor: com ele qualquer pessoa pode silenciar alertas e mudar configurações. Não publique o link de pareamento. Fora do notebook, toda chamada sem token recebe `401`; o notebook (acesso direto por `localhost`) não precisa de token.
+
+**Limites conhecidos:** o celular precisa estar com o app aberto (sem notificação push com a tela bloqueada ou o navegador fechado); no iPhone não há vibração pelo navegador; o túnel gratuito é temporário. Na **mesma rede Wi-Fi** dá para dispensar Vercel e túnel: no PowerShell `$env:HOST="0.0.0.0"; npm run start:celular` e abrir `http://IP-DO-NOTEBOOK:3000/?token=SEU_TOKEN` (o Windows pode pedir permissão no firewall).
+
+### 🔎 Reconhecimento das peças
+
+Ao conectar, o painel (e o celular) recebe pelo WebSocket o **inventário de peças** que a placa informou: sensor de temperatura (A0), LED 1 (D6), LED 2 (D7), buzzer (D8) e matriz 8×8 (D10–D12), cada uma com o estado em texto (*Lendo*, *Ligado*, *Desligado*, *Falha*, *Sem dados*). Aparece em **Protótipo ao vivo → Peças reconhecidas** e no Painel. Se a placa responder mas não com este firmware (um sketch antigo gravado), o painel avisa. O estado vem do que o **firmware declara**: não prova que o componente está ligado corretamente.
 
 <details>
 <summary><b>🧪 Circuito virtual no Wokwi (opcional)</b></summary>
@@ -263,18 +322,20 @@ A bancada desenhada no navegador é **ilustrativa**: ela não emula o firmware. 
 | `POST` | `/api/hardware/testar` | Pede um sinal de teste ao Arduino |
 | `WS` | `/ws` | Eventos em tempo real |
 
-**Serial (9600 baud, uma linha por mensagem)**
+**Serial (9600 baud, uma linha por mensagem)**: firmware `arduino/alerta_visual` (montagem real)
 
 | Sentido | Mensagem | Significado |
 | :--- | :--- | :--- |
-| Arduino → servidor | `HELLO,alerta_visual` | Placa iniciou |
-| Arduino → servidor | `EVT,<canal>,<pico>` | Som acima do limiar no canal 0 a 3 |
-| Arduino → servidor | `READINGS,<a0>,<a1>,<a2>,<a3>` | Amplitude atual de cada sensor |
-| Arduino → servidor | `STATUS,<alerta>,<led>,<motor>` | Estado das saídas (0 ou 1) |
-| Arduino → servidor | `SILENCIAR` | Botão físico pressionado |
-| Servidor → Arduino | `CFG,<canal>,<limiar>` · `ATIVO,<canal>,<0\|1>` | Sensibilidade e liga/desliga |
-| Servidor → Arduino | `ALERTA,<r>,<g>,<b>,<padrão>,<segundos>` | Dispara LED e vibração |
-| Servidor → Arduino | `PARAR` · `TESTE` | Para o alerta / sinal de teste (3 s) |
+| Arduino → servidor | `HELLO,alerta_visual_temp` | Placa iniciou (após ~3 s de autoteste e calibração) |
+| Arduino → servidor | `TEMP,<°C>,<variação 30 s>,<estado>,<silenciado>,<teste>` | A cada 1 s; estado 0 normal, 1 atenção, 2 alarme |
+| Arduino → servidor | `HW,<led1>,<led2>,<buzzer>,<matriz>` | Espelho das saídas; matriz = 8 bytes em hexa (linha 0 primeiro, bit 7 = esquerda) |
+| Arduino → servidor | `ERRO,sensor` | Leitura do NTC fora da faixa (fio solto) |
+| Servidor → Arduino | `CFGT,<décimos de °C>` · `ATIVO,4,<0 ou 1>` | Limiar de atenção e liga/desliga o alarme térmico |
+| Servidor → Arduino | `ALERTA,<r>,<g>,<b>,<padrão>,<segundos>,<ícone>` | Alerta do painel nos LEDs, buzzer e matriz (ícone: 0 ! · 1 sino · 2 rosto · 3 chama · 4 losango · 5 termômetro) |
+| Servidor → Arduino | `TESTE_TEMP,<décimos de °C>,<segundos>` | Injeta a temperatura no lugar do NTC (padrão 600 e 20 s) |
+| Servidor → Arduino | `PARAR` · `TESTE` | Para o alerta e silencia o alarme atual / tudo aceso por 3 s |
+
+O servidor continua aceitando o protocolo antigo (`EVT`, `READINGS`, `STATUS`, `SILENCIAR`), usado pelo circuito de som do Wokwi.
 
 </details>
 
@@ -319,6 +380,7 @@ a3_acessibilidade/
 ├── backend/                  # Servidor Node.js
 │   ├── server.js             #   API REST, WebSocket e serial
 │   └── data/                 #   histórico e configurações (criado ao rodar)
+├── vercel.json               # Publica a pasta frontend no Vercel
 ├── arduino/alerta_visual/    # Firmware do Arduino Uno
 ├── wokwi/                    # Circuito virtual e ponte com o servidor
 ├── tests/                    # Testes automatizados e capturas de tela
