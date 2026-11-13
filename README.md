@@ -268,6 +268,9 @@ flowchart LR
 > [!WARNING]
 > O token é a senha do seu servidor: com ele qualquer pessoa pode silenciar alertas e mudar configurações. Não publique o link de pareamento. Fora do notebook, toda chamada sem token recebe `401`; o notebook (acesso direto por `localhost`) não precisa de token.
 
+> [!IMPORTANT]
+> **No notebook, abra `http://localhost:3000`**, não o endereço do Vercel. O Chrome bloqueia páginas públicas (https) de falarem com `localhost` sem a sua permissão (*Local Network Access*), e o painel do Vercel aparece como "Sem conexão" mesmo com a placa ligada. O Vercel é para o **celular**, que alcança o notebook pelo túnel público.
+
 **Limites conhecidos:** o celular precisa estar com o app aberto (sem notificação push com a tela bloqueada ou o navegador fechado); no iPhone não há vibração pelo navegador; o túnel gratuito é temporário. Na **mesma rede Wi-Fi** dá para dispensar Vercel e túnel: no PowerShell `$env:HOST="0.0.0.0"; npm run start:celular` e abrir `http://IP-DO-NOTEBOOK:3000/?token=SEU_TOKEN` (o Windows pode pedir permissão no firewall).
 
 ### 🔎 Reconhecimento das peças

@@ -684,6 +684,8 @@ function protecao(req, res, next) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Max-Age', '600');
+    // Chrome pergunta (preflight) se uma página pública pode falar com um servidor da rede local/localhost.
+    if (req.headers['access-control-request-private-network'] === 'true') res.setHeader('Access-Control-Allow-Private-Network', 'true');
     if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
   }
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !origemPermitida(req.headers.origin, req.headers.host)) {
